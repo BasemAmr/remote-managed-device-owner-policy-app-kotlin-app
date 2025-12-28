@@ -20,5 +20,6 @@ data class SettingsEntity(
     val lastPolicySync: Long = 0,
     val lastUrlSync: Long = 0,
     val lastViolationSync: Long = 0,
+    val lastAppSync: Long = 0,
     val updatedAt: Long = System.currentTimeMillis()
 )

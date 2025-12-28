@@ -3,9 +3,10 @@
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import com.selfcontrol.deviceowner.AppBlockManager
-import com.selfcontrol.domain.model.Result
+import com.selfcontrol.domain.model.Result as DomainResult
 import com.selfcontrol.domain.repository.PolicyRepository
 import com.selfcontrol.domain.repository.SettingsRepository
 import dagger.assisted.Assisted
@@ -32,29 +33,36 @@ class PolicySyncWorker @AssistedInject constructor(
         const val TAG = "PolicySyncWorker"
     }
     
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): ListenableWorker.Result = withContext(Dispatchers.IO) {
         Timber.i("[$TAG] Starting policy sync")
         val startTime = System.currentTimeMillis()
         
         return@withContext try {
             // Step 1: Fetch latest policies from server
-            val fetchResult = policyRepository.syncPoliciesFromServer()
+            val result = policyRepository.syncPoliciesFromServer()
             
-            if (fetchResult.isEmpty()) {
+            if (result is DomainResult.Error) {
+                Timber.e("[$TAG] Failed to fetch policies: ${result.message}")
+                return@withContext ListenableWorker.Result.retry()
+            }
+
+            val policies = (result as? DomainResult.Success)?.data ?: emptyList()
+            
+            if (policies.isEmpty()) {
                 Timber.w("[$TAG] No policies fetched from server")
-                return@withContext Result.success()
+                return@withContext ListenableWorker.Result.success()
             }
             
-            Timber.d("[$TAG] Fetched ${fetchResult.size} policies from server")
+            Timber.d("[$TAG] Fetched ${policies.size} policies from server")
             
             // Step 2: Save policies locally
-            policyRepository.savePolicies(fetchResult)
+            policyRepository.savePolicies(policies)
             
             // Step 3: Enforce each policy
             var enforceSuccess = 0
             var enforceFailed = 0
             
-            fetchResult.forEach { policy ->
+            policies.forEach { policy ->
                 try {
                     appBlockManager.enforcePolicy(policy)
                     enforceSuccess++
@@ -70,7 +78,7 @@ class PolicySyncWorker @AssistedInject constructor(
             val duration = System.currentTimeMillis() - startTime
             Timber.i("[$TAG] Completed in ${duration}ms. Enforced: $enforceSuccess, Failed: $enforceFailed")
             
-            Result.success()
+            ListenableWorker.Result.success()
             
         } catch (e: Exception) {
             Timber.e(e, "[$TAG] Policy sync failed")
@@ -78,10 +86,10 @@ class PolicySyncWorker @AssistedInject constructor(
             // Retry with exponential backoff (max 3 attempts)
             if (runAttemptCount < 3) {
                 Timber.i("[$TAG] Retrying... Attempt ${runAttemptCount + 1}/3")
-                Result.retry()
+                ListenableWorker.Result.retry()
             } else {
                 Timber.e("[$TAG] Max retries exceeded, marking as failure")
-                Result.failure()
+                ListenableWorker.Result.failure()
             }
         }
     }

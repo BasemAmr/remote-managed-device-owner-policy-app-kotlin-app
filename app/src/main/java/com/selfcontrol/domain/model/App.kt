@@ -6,8 +6,9 @@
 data class App(
     val packageName: String,
     val name: String,
-    val iconUrl: String = "",
+    val iconUrl: String? = null,
     val isSystemApp: Boolean = false,
+
     val version: String = "",
     val installTime: Long = System.currentTimeMillis(),
     val isBlocked: Boolean = false

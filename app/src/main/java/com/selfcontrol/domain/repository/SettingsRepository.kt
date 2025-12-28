@@ -9,5 +9,6 @@ interface SettingsRepository {
     suspend fun saveSettings(settings: DeviceSettings)
     suspend fun updateMasterSwitch(enabled: Boolean)
     suspend fun updateLastSyncTime(timestamp: Long)
+    suspend fun updateLastAppSyncTime(timestamp: Long)
 }
 

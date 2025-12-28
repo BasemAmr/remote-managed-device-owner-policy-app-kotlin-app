@@ -3,6 +3,7 @@
 import com.selfcontrol.data.remote.dto.RequestDto
 import com.selfcontrol.domain.model.Request
 import com.selfcontrol.domain.model.RequestStatus
+import com.selfcontrol.domain.model.RequestType
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,6 +21,7 @@ class RequestMapper @Inject constructor() {
             id = dto.id,
             packageName = dto.packageName,
             appName = dto.appName,
+            type = parseType(dto.type),
             reason = dto.reason,
             status = parseStatus(dto.status),
             requestedAt = dto.requestedAt,
@@ -38,6 +40,7 @@ class RequestMapper @Inject constructor() {
             deviceId = deviceId,
             packageName = domain.packageName,
             appName = domain.appName,
+            type = domain.type.name.lowercase(),
             reason = domain.reason,
             status = domain.status.name.lowercase(),
             requestedAt = domain.requestedAt,
@@ -69,8 +72,21 @@ class RequestMapper @Inject constructor() {
             "pending" -> RequestStatus.PENDING
             "approved" -> RequestStatus.APPROVED
             "rejected" -> RequestStatus.REJECTED
+            "denied" -> RequestStatus.REJECTED
             "expired" -> RequestStatus.EXPIRED
+            "cancelled" -> RequestStatus.CANCELLED
             else -> RequestStatus.PENDING
+        }
+    }
+    
+    /**
+     * Parse type string to enum
+     */
+    private fun parseType(type: String): RequestType {
+        return try {
+            RequestType.valueOf(type.uppercase())
+        } catch (e: Exception) {
+            RequestType.APP_ACCESS
         }
     }
 }

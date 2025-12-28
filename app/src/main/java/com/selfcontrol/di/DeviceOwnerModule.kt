@@ -1,8 +1,9 @@
 ﻿package com.selfcontrol.di
 
 import android.content.Context
-import com.selfcontrol.data.repository.PolicyRepositoryImpl
-import com.selfcontrol.data.repository.ViolationRepositoryImpl
+import com.selfcontrol.data.local.prefs.AppPreferences
+import com.selfcontrol.domain.repository.PolicyRepository
+import com.selfcontrol.domain.repository.ViolationRepository
 import com.selfcontrol.deviceowner.AppBlockManager
 import com.selfcontrol.deviceowner.DeviceOwnerManager
 import com.selfcontrol.deviceowner.PackageMonitor
@@ -23,17 +24,18 @@ object DeviceOwnerModule {
     @Provides
     @Singleton
     fun provideDeviceOwnerManager(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        prefs: AppPreferences
     ): DeviceOwnerManager {
-        return DeviceOwnerManager(context)
+        return DeviceOwnerManager(context, prefs)
     }
     
     @Provides
     @Singleton
     fun provideAppBlockManager(
         deviceOwnerManager: DeviceOwnerManager,
-        policyRepository: PolicyRepositoryImpl,
-        violationRepository: ViolationRepositoryImpl
+        policyRepository: PolicyRepository,
+        violationRepository: ViolationRepository
     ): AppBlockManager {
         return AppBlockManager(
             deviceOwnerManager,

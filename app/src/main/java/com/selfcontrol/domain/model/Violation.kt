@@ -5,7 +5,8 @@
  */
 data class Violation(
     val id: String = java.util.UUID.randomUUID().toString(),
-    val packageName: String = "",
+    val appPackage: String = "",
+    val packageName: String = "", // Keep for compatibility if needed, but appPackage is requested
     val appName: String = "",
     val url: String = "",
     val type: ViolationType,
@@ -25,6 +26,7 @@ enum class ViolationType {
     UNAUTHORIZED_UNINSTALL_ATTEMPT,
     DEVICE_OWNER_DISABLED,
     VPN_BYPASS_ATTEMPT,
+    POLICY_BYPASS_ATTEMPT, // Added this
     BLOCKED_APP_ACCESS_ATTEMPT,
     ACCESSIBILITY_SERVICE_DISABLED,
     UNKNOWN;
@@ -36,9 +38,9 @@ enum class ViolationType {
         UNAUTHORIZED_UNINSTALL_ATTEMPT -> "Unauthorized Uninstall Attempt"
         DEVICE_OWNER_DISABLED -> "Device Owner Disabled"
         VPN_BYPASS_ATTEMPT -> "VPN Bypass Attempt"
+        POLICY_BYPASS_ATTEMPT -> "Policy Bypass Attempt"
         BLOCKED_APP_ACCESS_ATTEMPT -> "Blocked App Access Attempt"
         ACCESSIBILITY_SERVICE_DISABLED -> "Accessibility Service Disabled"
         UNKNOWN -> "Unknown Violation"
     }
 }
-

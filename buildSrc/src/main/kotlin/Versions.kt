@@ -1,7 +1,7 @@
 object Versions {
     // Kotlin & Gradle
-    const val kotlin = "2.1.0"
-    const val gradle = "8.5.0"
+    const val kotlin = "2.0.21"
+    const val gradle = "8.13" 
     const val jvmTarget = "17"
     
     // Android SDK
@@ -53,5 +53,8 @@ object Versions {
     
     // Build Tools
     const val googleServices = "4.4.2"
-    const val crashlyticsGradle = "3.0.0"
+    const val crashlyticsGradle = "3.0.6"
+    
+    // Metadata fix - 0.9.0 supports Kotlin 2.0.x
+    const val kotlinxMetadata = "0.9.0"
 }

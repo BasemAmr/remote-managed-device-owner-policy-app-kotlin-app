@@ -17,7 +17,7 @@ import com.selfcontrol.data.local.entity.*
         ViolationEntity::class,
         SettingsEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class SelfControlDatabase : RoomDatabase() {

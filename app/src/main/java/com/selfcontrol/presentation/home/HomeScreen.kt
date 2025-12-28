@@ -8,6 +8,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.QuestionAnswer
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,6 +27,7 @@ import com.selfcontrol.presentation.components.LoadingDialog
 import com.selfcontrol.presentation.components.SelfControlTopAppBar
 import com.selfcontrol.presentation.navigation.NavigationActions
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navigationActions: NavigationActions,
@@ -76,7 +80,7 @@ fun HomeScreen(
                     StatCard(
                         title = "Total Apps",
                         value = state.totalAppCount.toString(),
-                        icon = Icons.Default.Apps,
+                        icon = Icons.Filled.Apps,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f),
                         onClick = { navigationActions.navigateToApps() }
@@ -98,7 +102,7 @@ fun HomeScreen(
                     StatCard(
                         title = "Requests",
                         value = "0", // TODO: Wire up pending requests count
-                        icon = Icons.Default.QuestionAnswer,
+                        icon = Icons.Filled.QuestionAnswer,
                         color = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.weight(1f),
                         onClick = { navigationActions.navigateToRequests() }
@@ -139,7 +143,7 @@ fun StatusCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector = if (isActive) Icons.Default.CheckCircle else Icons.Default.Error,
+                imageVector = if (isActive) Icons.Default.CheckCircle else Icons.Filled.Error,
                 contentDescription = null,
                 tint = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
             )

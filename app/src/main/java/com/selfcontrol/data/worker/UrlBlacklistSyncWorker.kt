@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
+import com.selfcontrol.domain.model.Result as DomainResult
 import com.selfcontrol.domain.repository.UrlRepository
 import com.selfcontrol.service.UrlFilterVpnService
 import dagger.assisted.Assisted
@@ -31,7 +33,7 @@ class UrlBlacklistSyncWorker @AssistedInject constructor(
         const val ACTION_URL_LIST_UPDATED = "com.selfcontrol.ACTION_URL_LIST_UPDATED"
     }
     
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): ListenableWorker.Result = withContext(Dispatchers.IO) {
         Timber.i("[$TAG] Starting URL blacklist sync")
         val startTime = System.currentTimeMillis()
         
@@ -39,32 +41,39 @@ class UrlBlacklistSyncWorker @AssistedInject constructor(
             // Step 1: Fetch URL blacklist from server
             val result = urlRepository.syncUrlsFromServer("")
             
-            if (result.isEmpty()) {
+            if (result is DomainResult.Error) {
+                Timber.e("[$TAG] Failed to fetch URLs: ${result.message}")
+                return@withContext ListenableWorker.Result.retry()
+            }
+
+            val urls = (result as? DomainResult.Success)?.data ?: emptyList()
+            
+            if (urls.isEmpty()) {
                 Timber.d("[$TAG] No URLs fetched from server")
-                return@withContext Result.success()
+                return@withContext ListenableWorker.Result.success()
             }
             
-            Timber.d("[$TAG] Fetched ${result.size} URL patterns from server")
+            Timber.d("[$TAG] Fetched ${urls.size} URL patterns from server")
             
             // Step 2: Save URLs locally
-            urlRepository.saveUrls(result)
+            urlRepository.saveUrls(urls)
             
             // Step 3: Notify VPN service to reload blacklist
             notifyVpnService()
             
             val duration = System.currentTimeMillis() - startTime
-            Timber.i("[$TAG] Completed in ${duration}ms. Synced: ${result.size} patterns")
+            Timber.i("[$TAG] Completed in ${duration}ms. Synced: ${urls.size} patterns")
             
-            Result.success()
+            ListenableWorker.Result.success()
             
         } catch (e: Exception) {
             Timber.e(e, "[$TAG] URL blacklist sync failed")
             
             if (runAttemptCount < 3) {
                 Timber.i("[$TAG] Retrying... Attempt ${runAttemptCount + 1}/3")
-                Result.retry()
+                ListenableWorker.Result.retry()
             } else {
-                Result.failure()
+                ListenableWorker.Result.failure()
             }
         }
     }

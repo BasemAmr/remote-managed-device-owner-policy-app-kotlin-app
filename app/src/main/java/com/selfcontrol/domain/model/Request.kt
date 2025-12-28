@@ -6,10 +6,14 @@
 data class Request(
     val id: String = java.util.UUID.randomUUID().toString(),
     val packageName: String = "",
+    val appName: String = "",
     val url: String = "",
     val type: RequestType,
     val reason: String = "",
     val status: RequestStatus = RequestStatus.PENDING,
+    val requestedAt: Long = System.currentTimeMillis(),
+    val reviewedAt: Long? = null,
+    val reviewerNote: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val expiresAt: Long? = null,
@@ -60,6 +64,7 @@ enum class RequestType {
 enum class RequestStatus {
     PENDING,
     APPROVED,
+    REJECTED,
     DENIED,
     EXPIRED,
     CANCELLED;
@@ -67,10 +72,11 @@ enum class RequestStatus {
     fun getDisplayName(): String = when (this) {
         PENDING -> "Pending"
         APPROVED -> "Approved"
+        REJECTED -> "Rejected"
         DENIED -> "Denied"
         EXPIRED -> "Expired"
         CANCELLED -> "Cancelled"
     }
     
-    fun isTerminal(): Boolean = this in listOf(APPROVED, DENIED, EXPIRED, CANCELLED)
+    fun isTerminal(): Boolean = this in listOf(APPROVED, REJECTED, DENIED, EXPIRED, CANCELLED)
 }

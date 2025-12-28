@@ -65,6 +65,16 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
     
+    override suspend fun updateLastAppSyncTime(timestamp: Long) {
+        try {
+            settingsDao.updateLastAppSync(timestamp)
+            Timber.d("[SettingsRepo] Updated last app sync time: $timestamp")
+        } catch (e: Exception) {
+            Timber.e(e, "[SettingsRepo] Failed to update app sync time")
+            throw e
+        }
+    }
+    
     // ==================== Mappers ====================
     
     private fun entityToDomain(entity: SettingsEntity): DeviceSettings {
@@ -72,6 +82,7 @@ class SettingsRepositoryImpl @Inject constructor(
             deviceId = entity.deviceId,
             masterSwitchEnabled = entity.autoSyncEnabled,
             lastSyncTime = entity.lastPolicySync,
+            lastAppSyncTime = entity.lastAppSync,
             cooldownHours = entity.cooldownHours
         )
     }
@@ -89,6 +100,7 @@ class SettingsRepositoryImpl @Inject constructor(
             lastPolicySync = domain.lastSyncTime,
             lastUrlSync = 0,
             lastViolationSync = 0,
+            lastAppSync = domain.lastAppSyncTime,
             updatedAt = domain.updatedLocallyAt
         )
     }

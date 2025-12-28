@@ -3,6 +3,7 @@
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -51,7 +52,7 @@ fun SettingsScreen(
                 supportingContent = { Text(if (state.isDeviceOwner) "Active" else "Inactive") },
                 trailingContent = {
                     if (state.isDeviceOwner) {
-                        Icon(androidx.compose.material.icons.filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             )

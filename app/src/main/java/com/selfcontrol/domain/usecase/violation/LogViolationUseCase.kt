@@ -31,11 +31,13 @@ class LogViolationUseCase @Inject constructor(
         
         val violation = Violation(
             id = UUID.randomUUID().toString(),
+            appPackage = packageName,
             packageName = packageName,
             appName = appName,
             type = type,
+            message = type.getDisplayName(), // Added missing field
             timestamp = System.currentTimeMillis(),
-            details = details,
+            details = details ?: "",
             synced = false
         )
         

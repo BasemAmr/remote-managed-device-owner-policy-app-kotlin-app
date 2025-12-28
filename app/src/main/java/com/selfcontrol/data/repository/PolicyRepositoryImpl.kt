@@ -6,6 +6,7 @@ import com.selfcontrol.data.local.prefs.AppPreferences
 import com.selfcontrol.data.remote.api.SelfControlApi
 import com.selfcontrol.data.remote.mapper.PolicyMapper
 import com.selfcontrol.domain.model.AppPolicy
+import com.selfcontrol.domain.model.Result
 import com.selfcontrol.domain.repository.PolicyRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -61,46 +62,63 @@ class PolicyRepositoryImpl @Inject constructor(
         }
     }
     
-    override suspend fun savePolicy(policy: AppPolicy) {
-        try {
+    override suspend fun getActivePolicies(): List<AppPolicy> {
+        return getAllPolicies().filter { !it.isExpired() }
+    }
+    
+    override suspend fun getBlockedCount(): Result<Int> {
+        return try {
+            val count = policyDao.getBlockedCount()
+            Result.Success(count)
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+    
+    override suspend fun savePolicy(policy: AppPolicy): Result<Unit> {
+        return try {
             val entity = domainToEntity(policy)
             policyDao.insertPolicy(entity)
             Timber.d("[PolicyRepo] Saved policy for ${policy.packageName}")
+            Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "[PolicyRepo] Failed to save policy")
-            throw e
+            Result.Error(e)
         }
     }
     
-    override suspend fun savePolicies(policies: List<AppPolicy>) {
-        try {
+    override suspend fun savePolicies(policies: List<AppPolicy>): Result<Unit> {
+        return try {
             val entities = policies.map { domainToEntity(it) }
             policyDao.insertPolicies(entities)
             Timber.d("[PolicyRepo] Saved ${policies.size} policies")
+            Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "[PolicyRepo] Failed to save policies")
-            throw e
+            Result.Error(e)
         }
     }
     
-    override suspend fun deletePolicy(packageName: String) {
-        try {
+    override suspend fun deletePolicy(packageName: String): Result<Unit> {
+        return try {
             policyDao.deleteByPackageName(packageName)
             Timber.d("[PolicyRepo] Deleted policy for $packageName")
+            Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "[PolicyRepo] Failed to delete policy")
-            throw e
+            Result.Error(e)
         }
     }
     
-    override suspend fun syncPoliciesFromServer(): List<AppPolicy> {
+    override suspend fun syncPoliciesFromServer(): Result<List<AppPolicy>> {
         return try {
-            val deviceId = prefs.deviceId.firstOrNull() ?: throw Exception("No device ID")
+            val deviceId = prefs.deviceId.firstOrNull() ?: return Result.Error(Exception("No device ID"))
             
-            val response = api.getPolicies(deviceId)
+            val response = api.getPolicies()
             
             if (response.success && response.data != null) {
-                val policies = mapper.toDomainList(response.data)
+                // Unwrap the PolicyResponseDto to get the list of policies
+                val policies = mapper.toDomainList(response.data.policies)
                 
                 // Save to local database (offline-first)
                 savePolicies(policies)
@@ -109,31 +127,32 @@ class PolicyRepositoryImpl @Inject constructor(
                 prefs.setLastPolicySync(System.currentTimeMillis())
                 
                 Timber.i("[PolicyRepo] Fetched ${policies.size} policies from server")
-                policies
+                Result.Success(policies)
             } else {
-                throw Exception(response.message ?: "Failed to fetch policies")
+                Result.Error(Exception(response.message ?: "Failed to fetch policies"))
             }
         } catch (e: Exception) {
             Timber.e(e, "[PolicyRepo] Failed to fetch policies from server")
-            throw e
+            Result.Error(e)
         }
     }
     
-    override suspend fun syncToServer(policy: AppPolicy) {
-        try {
-            val deviceId = prefs.deviceId.firstOrNull() ?: throw Exception("No device ID")
+    override suspend fun syncToServer(policy: AppPolicy): Result<Unit> {
+        return try {
+            val deviceId = prefs.deviceId.firstOrNull() ?: return Result.Error(Exception("No device ID"))
             val dto = mapper.toDto(policy, deviceId)
             
             val response = api.applyPolicy(dto)
             
             if (response.success) {
                 Timber.i("[PolicyRepo] Synced policy ${policy.packageName} to server")
+                Result.Success(Unit)
             } else {
-                throw Exception(response.message ?: "Failed to sync policy")
+                Result.Error(Exception(response.message ?: "Failed to sync policy"))
             }
         } catch (e: Exception) {
             Timber.e(e, "[PolicyRepo] Failed to sync policy to server")
-            throw e
+            Result.Error(e)
         }
     }
     
@@ -158,7 +177,7 @@ class PolicyRepositoryImpl @Inject constructor(
             expiresAt = entity.expiresAt,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt,
-            reason = entity.reason
+            reason = entity.reason.orEmpty()
         )
     }
     

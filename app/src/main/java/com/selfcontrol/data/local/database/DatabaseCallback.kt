@@ -32,8 +32,11 @@ class DatabaseCallback @Inject constructor(
         if (settingsDao.getSettings() == null) {
             settingsDao.insertSettings(
                 SettingsEntity(
-                    deviceId = UUID.randomUUID().toString()
+                    deviceId = UUID.randomUUID().toString(),
+                    deviceName = "My Android Device",
+                    isDeviceOwner = false
                 )
+
             )
         }
     }

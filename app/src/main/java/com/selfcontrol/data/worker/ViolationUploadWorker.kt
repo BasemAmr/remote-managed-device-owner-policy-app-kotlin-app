@@ -3,6 +3,7 @@
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import com.selfcontrol.domain.repository.ViolationRepository
 import dagger.assisted.Assisted
@@ -30,7 +31,7 @@ class ViolationUploadWorker @AssistedInject constructor(
         private const val CLEANUP_DAYS = 30
     }
     
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+    override suspend fun doWork(): ListenableWorker.Result = withContext(Dispatchers.IO) {
         Timber.i("[$TAG] Starting violation upload")
         val startTime = System.currentTimeMillis()
         
@@ -44,7 +45,7 @@ class ViolationUploadWorker @AssistedInject constructor(
                 // Still perform cleanup of old violations
                 cleanupOldViolations()
                 
-                return@withContext Result.success()
+                return@withContext ListenableWorker.Result.success()
             }
             
             Timber.d("[$TAG] Uploading ${unsyncedViolations.size} violations")
@@ -58,16 +59,16 @@ class ViolationUploadWorker @AssistedInject constructor(
             val duration = System.currentTimeMillis() - startTime
             Timber.i("[$TAG] Completed in ${duration}ms. Uploaded: ${unsyncedViolations.size}")
             
-            Result.success()
+            ListenableWorker.Result.success()
             
         } catch (e: Exception) {
             Timber.e(e, "[$TAG] Violation upload failed")
             
             if (runAttemptCount < 3) {
                 Timber.i("[$TAG] Retrying... Attempt ${runAttemptCount + 1}/3")
-                Result.retry()
+                ListenableWorker.Result.retry()
             } else {
-                Result.failure()
+                ListenableWorker.Result.failure()
             }
         }
     }

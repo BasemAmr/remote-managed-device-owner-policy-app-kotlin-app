@@ -2,6 +2,7 @@ object Dependencies {
     
     // Kotlin
     const val kotlinStdlib = "org.jetbrains.kotlin:kotlin-stdlib:${Versions.kotlin}"
+    const val kotlinxMetadata = "org.jetbrains.kotlinx:kotlinx-metadata-jvm:${Versions.kotlinxMetadata}"
     
     // AndroidX Core
     const val coreKtx = "androidx.core:core-ktx:${Versions.core}"
@@ -14,6 +15,7 @@ object Dependencies {
     const val composeUiGraphics = "androidx.compose.ui:ui-graphics"
     const val composeUiToolingPreview = "androidx.compose.ui:ui-tooling-preview"
     const val composeMaterial3 = "androidx.compose.material3:material3:${Versions.material3}"
+    const val composeMaterialIconsExtended = "androidx.compose.material:material-icons-extended"
     const val composeActivity = "androidx.activity:activity-compose:1.9.3"
     const val composeUiTooling = "androidx.compose.ui:ui-tooling"
     const val composeUiTestManifest = "androidx.compose.ui:ui-test-manifest"

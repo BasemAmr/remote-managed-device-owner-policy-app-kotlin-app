@@ -35,19 +35,15 @@ class GetActivePoliciesUseCase @Inject constructor(
     suspend fun getActive(): Result<List<AppPolicy>> {
         Timber.d("[GetActivePolicies] Fetching active policies")
         
-        return when (val result = policyRepository.getActivePolicies()) {
-            is Result.Success -> {
-                val activePolicies = result.data.filter { !it.isExpired() }
-                Timber.i("[GetActivePolicies] Found ${activePolicies.size} active policies")
-                Result.Success(activePolicies)
-            }
-            
-            is Result.Error -> {
-                Timber.e("[GetActivePolicies] Error: ${result.message}")
-                result
-            }
-            
-            is Result.Loading -> result
+        // Use a list return and wrap it if necessary, or update repo to return Result
+        return try {
+            val policies = policyRepository.getActivePolicies()
+            val activePolicies = policies.filter { !it.isExpired() }
+            Timber.i("[GetActivePolicies] Found ${activePolicies.size} active policies")
+            Result.Success(activePolicies)
+        } catch (e: Exception) {
+            Timber.e(e, "[GetActivePolicies] Error fetching active policies")
+            Result.Error(e)
         }
     }
     

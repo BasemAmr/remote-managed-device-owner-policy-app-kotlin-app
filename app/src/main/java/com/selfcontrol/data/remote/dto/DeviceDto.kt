@@ -10,29 +10,35 @@ data class DeviceDto(
     val deviceId: String,
     
     @SerializedName("device_name")
-    val deviceName: String,
+    val deviceName: String = "",
     
     @SerializedName("model")
-    val model: String,
+    val model: String = "",
     
     @SerializedName("manufacturer")
-    val manufacturer: String,
+    val manufacturer: String = "",
     
     @SerializedName("android_version")
-    val androidVersion: String,
+    val androidVersion: String = "",
     
     @SerializedName("api_level")
-    val apiLevel: Int,
+    val apiLevel: Int = 0,
     
     @SerializedName("is_device_owner")
-    val isDeviceOwner: Boolean,
+    val isDeviceOwner: Boolean = false,
     
     @SerializedName("last_heartbeat")
-    val lastHeartbeat: Long,
+    val lastHeartbeat: Long = 0L,
     
     @SerializedName("app_version")
-    val appVersion: String,
+    val appVersion: String = "",
     
     @SerializedName("status")
-    val status: String // "active", "inactive", "error"
+    val status: String = "active", // "active", "inactive", "error"
+    
+    @SerializedName("device_token")
+    val authToken: String? = null, // Token returned from backend on registration
+    
+    @SerializedName("token")
+    val token: String? = null // Alternative token field name
 )

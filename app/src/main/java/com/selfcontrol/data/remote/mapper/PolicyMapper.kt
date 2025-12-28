@@ -23,7 +23,7 @@ class PolicyMapper @Inject constructor() {
             expiresAt = dto.expiresAt,
             createdAt = dto.createdAt,
             updatedAt = dto.updatedAt,
-            reason = dto.reason
+            reason = dto.reason ?: ""
         )
     }
     

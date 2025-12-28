@@ -30,10 +30,13 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
-            applicationIdSuffix = ".debug"
+            // Removed applicationIdSuffix to match google-services.json
             isDebuggable = true
-            
-            buildConfigField("String", "API_URL", "https://remote-managed-device-owner-policy-app.onrender.com")
+            // This prevents Crashlytics from interfering with the build graph in debug mode
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
+            }
+            buildConfigField("String", "API_URL", "\"https://remote-managed-device-owner-policy-app.onrender.com\"")
         }
         
         release {
@@ -44,7 +47,7 @@ android {
                 "proguard-rules.pro"
             )
             
-            buildConfigField("String", "API_URL", "https://remote-managed-device-owner-policy-app.onrender.com")
+            buildConfigField("String", "API_URL", "\"https://remote-managed-device-owner-policy-app.onrender.com\"")
         }
     }
     
@@ -72,6 +75,8 @@ android {
 dependencies {
     // Kotlin
     implementation(Dependencies.kotlinStdlib)
+    // Fix kotlinx-metadata version conflict
+    implementation(Dependencies.kotlinxMetadata)
 
     // AndroidX Core
     implementation(Dependencies.coreKtx)
@@ -84,6 +89,7 @@ dependencies {
     implementation(Dependencies.composeUiGraphics)
     implementation(Dependencies.composeUiToolingPreview)
     implementation(Dependencies.composeMaterial3)
+    implementation(Dependencies.composeMaterialIconsExtended)
     implementation(Dependencies.composeActivity)
 
     // Lifecycle

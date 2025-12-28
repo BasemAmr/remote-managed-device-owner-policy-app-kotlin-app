@@ -48,8 +48,12 @@ class AppRepositoryImpl @Inject constructor(
             Result.Success(entity?.let { entityToDomain(it) })
         } catch (e: Exception) {
             Timber.e(e, "[AppRepo] Failed to get app $packageName")
-            Result.Error(e.message ?: "Failed to get app")
+            Result.Error(e)
         }
+    }
+    
+    override suspend fun getAppByPackageName(packageName: String): Result<App?> {
+        return getApp(packageName)
     }
     
     override suspend fun refreshInstalledApps(): Result<List<App>> {
@@ -77,7 +81,7 @@ class AppRepositoryImpl @Inject constructor(
             
         } catch (e: Exception) {
             Timber.e(e, "[AppRepo] Failed to refresh installed apps")
-            Result.Error(e.message ?: "Failed to refresh apps")
+            Result.Error(e)
         }
     }
     
@@ -88,7 +92,7 @@ class AppRepositoryImpl @Inject constructor(
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "[AppRepo] Failed to save app")
-            Result.Error(e.message ?: "Failed to save app")
+            Result.Error(e)
         }
     }
     
@@ -99,7 +103,7 @@ class AppRepositoryImpl @Inject constructor(
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "[AppRepo] Failed to delete app")
-            Result.Error(e.message ?: "Failed to delete app")
+            Result.Error(e)
         }
     }
     
@@ -109,7 +113,30 @@ class AppRepositoryImpl @Inject constructor(
             Result.Success(count)
         } catch (e: Exception) {
             Timber.e(e, "[AppRepo] Failed to get app count")
-            Result.Error(e.message ?: "Failed to get count")
+            Result.Error(e)
+        }
+    }
+    
+    override suspend fun getInstalledAppsForUpload(): Result<List<App>> {
+        return try {
+            val installedApps = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+            
+            val apps = installedApps.map { appInfo ->
+                App(
+                    packageName = appInfo.packageName,
+                    name = getAppName(appInfo),
+                    version = getAppVersion(appInfo.packageName),
+                    installTime = getInstallTime(appInfo.packageName),
+                    isSystemApp = isSystemApp(appInfo)
+                )
+            }
+            
+            Timber.d("[AppRepo] Retrieved ${apps.size} installed apps for upload")
+            Result.Success(apps)
+            
+        } catch (e: Exception) {
+            Timber.e(e, "[AppRepo] Failed to get installed apps for upload")
+            Result.Error(e)
         }
     }
     
@@ -151,7 +178,7 @@ class AppRepositoryImpl @Inject constructor(
         return App(
             packageName = entity.packageName,
             name = entity.name,
-            iconUrl = entity.iconUrl,
+            iconUrl = entity.iconUrl.orEmpty(),
             isSystemApp = entity.isSystemApp,
             version = entity.version,
             installTime = entity.installTime

@@ -60,18 +60,23 @@ class AppPreferences @Inject constructor(
     
     val authToken: Flow<String?> = dataStore.data
         .catch { handleException(it) }
-        .map { prefs -> prefs[AUTH_TOKEN] }
+        .map { prefs -> 
+            // Return NULL if missing or blank, so we can detect it
+            prefs[AUTH_TOKEN].takeUnless { it.isNullOrBlank() }
+        }
     
     suspend fun setAuthToken(token: String) {
         dataStore.edit { prefs ->
             prefs[AUTH_TOKEN] = token
         }
+        Timber.i("[AppPrefs] ✅ Token saved to disk.")
     }
     
     suspend fun clearAuthToken() {
         dataStore.edit { prefs ->
             prefs.remove(AUTH_TOKEN)
         }
+        Timber.i("[AppPrefs] Token cleared from disk.")
     }
     
     // ==================== Device Owner Status ====================

@@ -7,15 +7,21 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.selfcontrol.data.repository.DeviceSetupRepository
+import com.selfcontrol.data.worker.AppSyncWorker
 import com.selfcontrol.data.worker.HeartbeatWorker
 import com.selfcontrol.data.worker.PolicySyncWorker
 import com.selfcontrol.data.worker.RequestCheckWorker
 import com.selfcontrol.data.worker.UrlBlacklistSyncWorker
 import com.selfcontrol.data.worker.ViolationUploadWorker
+import com.selfcontrol.deviceowner.DeviceOwnerManager
 import com.selfcontrol.deviceowner.PackageMonitor
 import com.selfcontrol.util.Constants
 
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -33,18 +39,44 @@ class SelfControlApp : Application(), Configuration.Provider {
     @Inject
     lateinit var packageMonitor: PackageMonitor
     
+    // Inject the new components
+    @Inject
+    lateinit var deviceOwnerManager: DeviceOwnerManager
+    
+    @Inject
+    lateinit var deviceSetupRepository: DeviceSetupRepository
+    
+    private val appScope = CoroutineScope(Dispatchers.IO)
+    
     override fun onCreate() {
         super.onCreate()
         
         // Initialize Timber logging
         initializeLogging()
         
-        Timber.i("SelfControlApp: Application started")
+        Timber.i("--- APP STARTUP ---")
         
-        // Start monitoring package changes
+        // 1. Initialize Device Owner (Locks policies & Updates UI)
+        deviceOwnerManager.initialize()
+        
+        // 2. Start monitoring package changes
         packageMonitor.startMonitoring()
         
-        // Schedule all background workers
+        // 3. Register & Scan Apps (Background)
+        appScope.launch {
+            try {
+                deviceSetupRepository.performStartupChecks()
+                
+                // 4. Start VPN Service for URL Blocking
+                // This creates a local VPN that intercepts DNS requests
+                Timber.i("[Startup] Starting URL Filter VPN Service...")
+                com.selfcontrol.deviceowner.UrlFilterVpnService.start(this@SelfControlApp)
+            } catch (e: Exception) {
+                Timber.e(e, "[Startup] Initialization failed")
+            }
+        }
+        
+        // 5. Schedule all background workers
         scheduleBackgroundWorkers()
     }
     
@@ -145,6 +177,20 @@ class SelfControlApp : Application(), Configuration.Provider {
             UrlBlacklistSyncWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
             urlSyncWork
+        )
+        
+        // 6. App Sync Worker - Every 60 minutes
+        val appSyncWork = PeriodicWorkRequestBuilder<AppSyncWorker>(
+            Constants.APP_SYNC_INTERVAL, TimeUnit.MINUTES
+        )
+            .setConstraints(networkConstraint)
+            .addTag(Constants.WORK_TAG_APP_SYNC)
+            .build()
+        
+        workManager.enqueueUniquePeriodicWork(
+            AppSyncWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            appSyncWork
         )
         
         Timber.i("SelfControlApp: All background workers scheduled")

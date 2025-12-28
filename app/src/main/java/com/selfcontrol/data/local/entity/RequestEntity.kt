@@ -17,6 +17,7 @@ data class RequestEntity(
     val id: String = UUID.randomUUID().toString(),
     val packageName: String,
     val appName: String,
+    val type: String = "app_access", // Added this
     val reason: String,
     val status: String, // "pending", "approved", "rejected", "expired"
     val requestedAt: Long = System.currentTimeMillis(),

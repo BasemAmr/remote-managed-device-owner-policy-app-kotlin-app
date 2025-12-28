@@ -44,15 +44,11 @@ class CreateRequestViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            val request = Request(
-                packageName = if (type == RequestType.APP_ACCESS || type == RequestType.TEMPORARY_UNBLOCK) packageName else "",
-                url = if (type == RequestType.URL_ACCESS) url else "",
-                type = type,
-                reason = reason,
-                expiresAt = System.currentTimeMillis() + (durationHours * 60 * 60 * 1000)
-            )
-
-            when (val result = createAccessRequestUseCase(request)) {
+            when (val result = createAccessRequestUseCase(
+                packageName = packageName,
+                appName = packageName,
+                reason = reason
+            )) {
                 is Result.Success -> {
                     _uiState.update { it.copy(
                         isLoading = false,

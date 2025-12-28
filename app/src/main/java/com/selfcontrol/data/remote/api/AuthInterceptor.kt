@@ -1,49 +1,39 @@
 ﻿package com.selfcontrol.data.remote.api
 
 import com.selfcontrol.data.local.prefs.AppPreferences
-import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 import timber.log.Timber
 import javax.inject.Inject
-import javax.inject.Singleton
 
-/**
- * Intercepts all API requests to inject JWT authentication token
- */
-@Singleton
 class AuthInterceptor @Inject constructor(
     private val appPreferences: AppPreferences
 ) : Interceptor {
-    
+
     override fun intercept(chain: Interceptor.Chain): Response {
-        val originalRequest = chain.request()
-        
-        // Skip auth for public endpoints
-        val url = originalRequest.url.toString()
-        if (url.contains("/register") || url.contains("/public/")) {
-            return chain.proceed(originalRequest)
-        }
-        
-        // Get auth token from DataStore (blocking call in interceptor)
+        val requestBuilder = chain.request().newBuilder()
+
+        // 1. FORCE WAIT for the token (Blocking call)
+        // This ensures we don't proceed until we check the disk
         val token = runBlocking {
-            appPreferences.authToken.firstOrNull()
+            try {
+                appPreferences.authToken.first()
+            } catch (e: Exception) {
+                Timber.e(e, "[AuthInterceptor] Failed to read token")
+                null
+            }
         }
-        
-        // Add Authorization header if token exists
-        val authorizedRequest = if (!token.isNullOrBlank()) {
-            originalRequest.newBuilder()
-                .header("Authorization", "Bearer $token")
-                .header("Content-Type", "application/json")
-                .build()
+
+        // 2. Log exactly what is happening
+        if (token.isNullOrBlank()) {
+            Timber.w("[AuthInterceptor] ⚠️ WARNING: No auth token found! Request will likely fail.")
         } else {
-            Timber.w("[AuthInterceptor] No auth token available for ${originalRequest.url}")
-            originalRequest.newBuilder()
-                .header("Content-Type", "application/json")
-                .build()
+            // Timber.d("[AuthInterceptor] Attaching token: ${token.take(10)}...") // Uncomment to debug
+            requestBuilder.addHeader("Authorization", "Bearer $token")
         }
-        
-        return chain.proceed(authorizedRequest)
+
+        return chain.proceed(requestBuilder.build())
     }
 }

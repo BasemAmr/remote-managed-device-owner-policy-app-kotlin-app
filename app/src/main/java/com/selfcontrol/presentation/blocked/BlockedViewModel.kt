@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.selfcontrol.domain.model.Request
 import com.selfcontrol.domain.model.RequestType
+import com.selfcontrol.domain.model.Result
 import com.selfcontrol.domain.repository.AppRepository
 import com.selfcontrol.domain.repository.RequestRepository
 import com.selfcontrol.domain.usecase.request.CreateAccessRequestUseCase
@@ -43,7 +44,9 @@ class BlockedViewModel @Inject constructor(
     private fun loadAppInfo() {
         viewModelScope.launch {
             try {
-                val app = appRepository.getAppByPackageName(packageName)
+                val result = appRepository.getAppByPackageName(packageName)
+                val app = result.getOrNull()
+                
                 _uiState.update { it.copy(
                     packageName = packageName,
                     appName = app?.name ?: packageName,
@@ -62,7 +65,7 @@ class BlockedViewModel @Inject constructor(
 
     private fun checkExistingRequest() {
         viewModelScope.launch {
-            requestRepository.observePendingRequestsForApp(packageName)
+            requestRepository.observeRequestsForApp(packageName)
                 .catch { e ->
                     _uiState.update { it.copy(error = e.message) }
                 }
@@ -80,22 +83,19 @@ class BlockedViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isCreatingRequest = true, error = null) }
 
-            val request = Request(
+            when (val result = createAccessRequestUseCase(
                 packageName = packageName,
-                type = RequestType.APP_ACCESS,
-                reason = reason,
-                expiresAt = System.currentTimeMillis() + (durationHours * 60 * 60 * 1000)
-            )
-
-            when (val result = createAccessRequestUseCase(request)) {
-                is com.selfcontrol.domain.model.Result.Success -> {
+                appName = _uiState.value.appName,
+                reason = reason
+            )) {
+                is Result.Success -> {
                     _uiState.update { it.copy(
                         isCreatingRequest = false,
                         requestCreated = true,
                         hasExistingRequest = true
                     ) }
                 }
-                is com.selfcontrol.domain.model.Result.Error -> {
+                is Result.Error -> {
                     _uiState.update { it.copy(
                         isCreatingRequest = false,
                         error = result.message ?: "Failed to create request"

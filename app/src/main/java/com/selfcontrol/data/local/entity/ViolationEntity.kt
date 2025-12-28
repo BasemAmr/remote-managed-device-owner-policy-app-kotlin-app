@@ -10,14 +10,16 @@ import java.util.UUID
  */
 @Entity(
     tableName = "violations",
-    indices = [Index("packageName"), Index("timestamp"), Index("synced")]
+    indices = [Index("appPackage"), Index("timestamp"), Index("synced")]
 )
 data class ViolationEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
-    val packageName: String,
+    val appPackage: String,
+    val packageName: String = "", // Keep for compatibility
     val appName: String,
     val violationType: String, // "app_launch_attempt", "url_access_attempt", etc.
+    val message: String = "", // Added this
     val timestamp: Long = System.currentTimeMillis(),
     val details: String? = null,
     val synced: Boolean = false

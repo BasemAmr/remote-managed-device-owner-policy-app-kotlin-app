@@ -31,7 +31,7 @@ interface ViolationDao {
     @Query("SELECT * FROM violations WHERE id = :violationId LIMIT 1")
     suspend fun getViolation(violationId: String): ViolationEntity?
     
-    @Query("SELECT * FROM violations WHERE packageName = :packageName ORDER BY timestamp DESC")
+    @Query("SELECT * FROM violations WHERE appPackage = :packageName OR packageName = :packageName ORDER BY timestamp DESC")
     fun observeViolationsForApp(packageName: String): Flow<List<ViolationEntity>>
     
     @Query("SELECT * FROM violations WHERE synced = 0 ORDER BY timestamp ASC")
@@ -54,6 +54,9 @@ interface ViolationDao {
     
     @Query("DELETE FROM violations WHERE timestamp < :timestamp")
     suspend fun deleteOlderThan(timestamp: Long)
+    
+    @Query("SELECT * FROM violations ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentViolations(limit: Int): List<ViolationEntity>
     
     @Query("DELETE FROM violations")
     suspend fun clearAll()

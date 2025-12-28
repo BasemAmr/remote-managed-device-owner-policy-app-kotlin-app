@@ -31,6 +31,9 @@ interface SettingsDao {
     @Query("UPDATE settings SET lastViolationSync = :timestamp WHERE id = 1")
     suspend fun updateLastViolationSync(timestamp: Long)
     
+    @Query("UPDATE settings SET lastAppSync = :timestamp WHERE id = 1")
+    suspend fun updateLastAppSync(timestamp: Long)
+    
     @Query("UPDATE settings SET isDeviceOwner = :isOwner WHERE id = 1")
     suspend fun updateDeviceOwnerStatus(isOwner: Boolean)
     

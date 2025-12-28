@@ -3,9 +3,11 @@
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
+import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import com.selfcontrol.deviceowner.AppBlockManager
 import com.selfcontrol.domain.model.RequestStatus
+import com.selfcontrol.domain.model.Result as DomainResult
 import com.selfcontrol.domain.repository.PolicyRepository
 import com.selfcontrol.domain.repository.RequestRepository
 import dagger.assisted.Assisted
@@ -32,89 +34,79 @@ class RequestCheckWorker @AssistedInject constructor(
         const val WORK_NAME = "request_check_worker"
         const val TAG = "RequestCheckWorker"
     }
-    
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+
+    override suspend fun doWork(): ListenableWorker.Result = withContext(Dispatchers.IO) {
         Timber.i("[$TAG] Starting request status check")
         val startTime = System.currentTimeMillis()
-        
-        return@withContext try {
+
+        try {
             // Step 1: Get all pending requests
             val pendingRequests = requestRepository.observeRequestsByStatus(RequestStatus.PENDING).first()
-            
+
             if (pendingRequests.isEmpty()) {
                 Timber.d("[$TAG] No pending requests to check")
-                return@withContext Result.success()
+                return@withContext ListenableWorker.Result.success()
             }
-            
+
             Timber.d("[$TAG] Checking ${pendingRequests.size} pending requests")
-            
+
             var approved = 0
             var denied = 0
             var stillPending = 0
-            
+
             // Step 2: Check each request's status from server
             pendingRequests.forEach { request ->
                 try {
-                    val serverRequest = requestRepository.getRequestById(request.id)
-                    
-                    if (serverRequest != null) {
-                        when (serverRequest.status) {
-                            RequestStatus.APPROVED -> {
-                                Timber.i("[$TAG] Request ${request.id} approved - unblocking ${request.packageName}")
-                                
-                                // Unblock the app
-                                handleApprovedRequest(request.packageName, serverRequest.expiresAt)
-                                
-                                // Update local request status
-                                requestRepository.updateRequest(serverRequest)
-                                approved++
+                    val result = requestRepository.checkRequestStatus(request.id)
+
+                    when (result) {
+                        is DomainResult.Success -> {
+                            val serverRequest = result.data
+                            when (serverRequest.status) {
+                                RequestStatus.APPROVED -> {
+                                    Timber.i("[$TAG] Request ${request.id} approved - unblocking ${request.packageName}")
+                                    handleApprovedRequest(request.packageName, serverRequest.reviewedAt ?: System.currentTimeMillis())
+                                    approved++
+                                }
+                                RequestStatus.REJECTED, RequestStatus.DENIED -> {
+                                    Timber.i("[$TAG] Request ${request.id} rejected/denied")
+                                    denied++
+                                }
+                                RequestStatus.PENDING -> {
+                                    Timber.d("[$TAG] Request ${request.id} still pending")
+                                    stillPending++
+                                }
+                                RequestStatus.EXPIRED, RequestStatus.CANCELLED -> {
+                                    Timber.d("[$TAG] Request ${request.id} expired or cancelled")
+                                }
                             }
-                            RequestStatus.DENIED -> {
-                                Timber.i("[$TAG] Request ${request.id} denied")
-                                
-                                // Update local request status
-                                requestRepository.updateRequest(serverRequest)
-                                denied++
-                            }
-                            RequestStatus.EXPIRED -> {
-                                Timber.d("[$TAG] Request ${request.id} expired")
-                                
-                                // Ensure app is blocked
-                                appBlockManager.blockApp(request.packageName)
-                                
-                                // Update local request status
-                                requestRepository.updateRequest(serverRequest)
-                            }
-                            else -> {
-                                stillPending++
-                            }
+                        }
+                        is DomainResult.Error -> {
+                            Timber.e(result.exception, "[$TAG] Failed to check request ${request.id}")
+                        }
+                        is DomainResult.Loading -> {
+                            Timber.d("[$TAG] Loading request status for ${request.id}")
+                            stillPending++
                         }
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "[$TAG] Failed to check request ${request.id}")
+                    Timber.e(e, "[$TAG] Exception while checking request ${request.id}")
                 }
             }
-            
-            // Step 3: Sync unsynced requests to server
-            val unsyncedRequests = requestRepository.getUnsyncedRequests()
-            if (unsyncedRequests.isNotEmpty()) {
-                Timber.d("[$TAG] Syncing ${unsyncedRequests.size} unsynced requests")
-                requestRepository.syncRequestsToServer()
-            }
-            
+
             val duration = System.currentTimeMillis() - startTime
             Timber.i("[$TAG] Completed in ${duration}ms. Approved: $approved, Denied: $denied, Pending: $stillPending")
-            
-            Result.success()
-            
+
+            return@withContext ListenableWorker.Result.success()
+
         } catch (e: Exception) {
             Timber.e(e, "[$TAG] Request check failed")
-            
-            if (runAttemptCount < 3) {
-                Timber.i("[$TAG] Retrying... Attempt ${runAttemptCount + 1}/3")
-                Result.retry()
-            } else {
-                Result.failure()
+            return@withContext when {
+                runAttemptCount < 3 -> {
+                    Timber.i("[$TAG] Retrying... Attempt ${runAttemptCount + 1}/3")
+                    ListenableWorker.Result.retry()
+                }
+                else -> ListenableWorker.Result.failure()
             }
         }
     }

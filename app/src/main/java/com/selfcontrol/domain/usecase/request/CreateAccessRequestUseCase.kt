@@ -2,6 +2,7 @@
 
 import com.selfcontrol.domain.model.Request
 import com.selfcontrol.domain.model.RequestStatus
+import com.selfcontrol.domain.model.RequestType
 import com.selfcontrol.domain.model.Result
 import com.selfcontrol.domain.repository.RequestRepository
 import timber.log.Timber
@@ -29,11 +30,11 @@ class CreateAccessRequestUseCase @Inject constructor(
         
         // Validate inputs
         if (reason.isBlank()) {
-            return Result.Error("Reason cannot be empty")
+            return Result.Error(Exception("Reason cannot be empty"))
         }
         
         if (reason.length < 10) {
-            return Result.Error("Reason must be at least 10 characters")
+            return Result.Error(Exception("Reason must be at least 10 characters"))
         }
         
         // Create request
@@ -41,24 +42,20 @@ class CreateAccessRequestUseCase @Inject constructor(
             id = UUID.randomUUID().toString(),
             packageName = packageName,
             appName = appName,
+            type = RequestType.APP_ACCESS,
             reason = reason,
             status = RequestStatus.PENDING,
             requestedAt = System.currentTimeMillis()
         )
         
         // Save and sync
-        return when (val result = requestRepository.createRequest(request)) {
-            is Result.Success -> {
-                Timber.i("[CreateRequest] Request created successfully: ${result.data.id}")
-                result
-            }
-            
-            is Result.Error -> {
-                Timber.e("[CreateRequest] Failed to create request: ${result.message}")
-                result
-            }
-            
-            is Result.Loading -> result
+        return try {
+            requestRepository.createRequest(request)
+            Timber.i("[CreateRequest] Request created successfully: ${request.id}")
+            Result.Success(request)
+        } catch (e: Exception) {
+            Timber.e(e, "[CreateRequest] Failed to create request")
+            Result.Error(e)
         }
     }
     
@@ -71,10 +68,6 @@ class CreateAccessRequestUseCase @Inject constructor(
         packageName: String,
         cooldownHours: Int = 24
     ): Result<Boolean> {
-        // Get recent requests for this app
-        // Check if any pending or recently rejected requests exist
-        // This would need to query the repository
-        
         Timber.d("[CreateRequest] Checking if request can be created for $packageName")
         
         // TODO: Implement cooldown logic

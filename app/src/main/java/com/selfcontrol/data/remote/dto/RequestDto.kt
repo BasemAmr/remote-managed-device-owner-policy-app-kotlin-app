@@ -18,6 +18,9 @@ data class RequestDto(
     @SerializedName("app_name")
     val appName: String,
     
+    @SerializedName("type")
+    val type: String, // "app_access", "url_access", etc.
+    
     @SerializedName("reason")
     val reason: String,
     

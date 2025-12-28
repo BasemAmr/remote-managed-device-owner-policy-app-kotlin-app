@@ -6,6 +6,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -87,7 +91,7 @@ fun AppDetailsScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
-                                imageVector = if (app.isBlocked) Icons.Default.Block else Icons.Default.Apps,
+                                imageVector = if (app.isBlocked) Icons.Filled.Block else Icons.Filled.Apps,
                                 contentDescription = null,
                                 modifier = Modifier.size(64.dp),
                                 tint = if (app.isBlocked) 
@@ -190,7 +194,8 @@ fun AppDetailsScreen(
                                 containerColor = MaterialTheme.colorScheme.primary
                             )
                         ) {
-                            Icon(Icons.Default.LockOpen, contentDescription = null)
+                            Icon(Icons.Filled.LockOpen, contentDescription = null)
+
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Unblock App")
                         }
@@ -202,7 +207,8 @@ fun AppDetailsScreen(
                                 containerColor = MaterialTheme.colorScheme.error
                             )
                         ) {
-                            Icon(Icons.Default.Block, contentDescription = null)
+                            Icon(Icons.Filled.Block, contentDescription = null)
+
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Block App")
                         }
@@ -219,7 +225,8 @@ fun AppDetailsScreen(
                                 modifier = Modifier.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Filled.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(error, color = MaterialTheme.colorScheme.onErrorContainer)
                             }
@@ -234,7 +241,7 @@ fun AppDetailsScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        Icons.Default.Error,
+                        Icons.Filled.Error,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.error

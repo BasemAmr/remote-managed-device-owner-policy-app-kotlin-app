@@ -27,42 +27,37 @@ class AppBlockManager @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     /**
-     * Enforce a policy (block or unblock an app)
+     * Enforce a policy with granular control
+     * isBlocked -> Hides the app (Cannot use)
+     * isLocked -> Prevents uninstall (Can use, but cannot delete)
      */
     suspend fun enforcePolicy(policy: AppPolicy) {
-        Timber.d("[AppBlockManager] Enforcing policy for ${policy.packageName}")
+        Timber.d("[AppBlockManager] Enforcing: ${policy.packageName} (Blocked: ${policy.isBlocked}, Locked: ${policy.isLocked})")
         
         try {
-            // Check if policy is expired
-            if (policy.isExpired()) {
-                Timber.w("[AppBlockManager] Policy expired for ${policy.packageName}")
-                return
-            }
+            // 1. Handle Usage Blocking (Hiding)
+            // If expired, we force unblock (show app)
+            val shouldHide = policy.isBlocked && !policy.isExpired()
+            deviceOwnerManager.setAppHidden(policy.packageName, shouldHide)
+
+            // 2. Handle Uninstall Blocking (Locking)
+            // Even if expired, we might want to keep it locked, or unlock it. 
+            // Usually, expiration applies to blocking usage. Locking is persistent.
+            deviceOwnerManager.setAppUninstallBlocked(policy.packageName, policy.isLocked)
             
-            // Apply the policy using device owner
-            val success = if (policy.isBlocked) {
-                deviceOwnerManager.disableApp(policy.packageName)
-            } else {
-                deviceOwnerManager.enableApp(policy.packageName)
-            }
+            // 3. Save locally
+            policyRepository.savePolicy(policy)
             
-            if (success) {
-                // Save policy to local database
-                policyRepository.savePolicy(policy)
-                
-                // Sync to server in background
-                scope.launch {
-                    try {
-                        policyRepository.syncToServer(policy)
-                    } catch (e: Exception) {
-                        Timber.e(e, "[AppBlockManager] Failed to sync policy to server")
-                    }
+            // 4. Sync status back to server
+            scope.launch {
+                try {
+                    policyRepository.syncToServer(policy)
+                } catch (e: Exception) {
+                    Timber.e(e, "[AppBlockManager] Failed to sync policy to server")
                 }
-                
-                Timber.i("[AppBlockManager] Successfully enforced policy for ${policy.packageName}")
-            } else {
-                throw Exception("Failed to apply policy via DevicePolicyManager")
             }
+            
+            Timber.i("[AppBlockManager] Successfully enforced policy for ${policy.packageName}")
             
         } catch (e: Exception) {
             Timber.e(e, "[AppBlockManager] Failed to enforce policy for ${policy.packageName}")
@@ -129,6 +124,9 @@ class AppBlockManager @Inject constructor(
                 }
             }
             
+            // Also ensure self is locked
+            deviceOwnerManager.initialize()
+            
             Timber.i("[AppBlockManager] Enforced ${policies.size} policies")
             
         } catch (e: Exception) {
@@ -176,6 +174,21 @@ class AppBlockManager @Inject constructor(
             
         } catch (e: Exception) {
             Timber.e(e, "[AppBlockManager] Error checking block status: $packageName")
+            false
+        }
+    }
+    
+    /**
+     * Check if an app is specifically LOCKED (Uninstall/Modify blocked).
+     * Used by Accessibility Service to prevent tampering in Settings.
+     */
+    suspend fun isAppLocked(packageName: String): Boolean {
+        return try {
+            val policy = policyRepository.getPolicyForApp(packageName)
+            // It is locked if the policy exists AND isLocked is true
+            policy?.isLocked == true
+        } catch (e: Exception) {
+            Timber.e(e, "[AppBlockManager] Error checking lock status: $packageName")
             false
         }
     }

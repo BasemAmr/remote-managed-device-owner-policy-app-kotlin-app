@@ -7,6 +7,7 @@ data class DeviceSettings(
     val deviceId: String,
     val masterSwitchEnabled: Boolean = true,
     val lastSyncTime: Long = 0,
+    val lastAppSyncTime: Long = 0,
     val cooldownHours: Int = 24,
     val updatedLocallyAt: Long = System.currentTimeMillis()
 ) {

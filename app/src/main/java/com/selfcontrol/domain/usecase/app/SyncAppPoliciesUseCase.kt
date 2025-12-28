@@ -18,7 +18,7 @@ class SyncAppPoliciesUseCase @Inject constructor(
     suspend operator fun invoke(): Result<List<AppPolicy>> {
         Timber.i("[SyncAppPolicies] Starting policy sync")
         
-        return when (val result = policyRepository.fetchLatestPolicies()) {
+        return when (val result = policyRepository.syncPoliciesFromServer()) {
             is Result.Success -> {
                 Timber.i("[SyncAppPolicies] Successfully synced ${result.data.size} policies")
                 result
@@ -37,8 +37,6 @@ class SyncAppPoliciesUseCase @Inject constructor(
      * Get sync status (last sync time, pending changes, etc.)
      */
     suspend fun getSyncStatus(): SyncStatus {
-        // This would check last sync time from preferences
-        // and compare with current policies
         return SyncStatus(
             lastSyncTime = 0L, // TODO: Get from preferences
             hasPendingChanges = false,

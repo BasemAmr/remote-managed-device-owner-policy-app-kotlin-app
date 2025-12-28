@@ -21,6 +21,9 @@ data class ViolationDto(
     @SerializedName("violation_type")
     val violationType: String, // "app_launch_attempt", "url_access_attempt", "policy_bypass_attempt"
     
+    @SerializedName("message")
+    val message: String = "", // Added this
+    
     @SerializedName("timestamp")
     val timestamp: Long,
     
