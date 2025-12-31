@@ -193,6 +193,19 @@ class SelfControlApp : Application(), Configuration.Provider {
             appSyncWork
         )
         
+        // 7. Accessibility Enforce Worker - Every 6 hours
+        val accessibilityEnforceWork = PeriodicWorkRequestBuilder<com.selfcontrol.data.worker.AccessibilityEnforceWorker>(
+            Constants.ACCESSIBILITY_ENFORCE_INTERVAL, TimeUnit.MINUTES
+        )
+            .addTag(Constants.WORK_TAG_ACCESSIBILITY_ENFORCE)
+            .build()
+        
+        workManager.enqueueUniquePeriodicWork(
+            com.selfcontrol.data.worker.AccessibilityEnforceWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            accessibilityEnforceWork
+        )
+        
         Timber.i("SelfControlApp: All background workers scheduled")
     }
     

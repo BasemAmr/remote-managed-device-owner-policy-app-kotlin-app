@@ -18,6 +18,9 @@ data class ResponseWrapper<T>(
     @SerializedName("error")
     val error: ErrorDto? = null,
     
+    @SerializedName("remote_lock")
+    val remoteLock: Boolean = false,
+    
     @SerializedName("timestamp")
     val timestamp: Long = System.currentTimeMillis()
 )

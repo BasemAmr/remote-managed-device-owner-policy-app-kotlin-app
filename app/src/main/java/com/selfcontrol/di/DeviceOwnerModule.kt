@@ -2,6 +2,7 @@
 
 import android.content.Context
 import com.selfcontrol.data.local.prefs.AppPreferences
+import com.selfcontrol.domain.repository.AppRepository
 import com.selfcontrol.domain.repository.PolicyRepository
 import com.selfcontrol.domain.repository.ViolationRepository
 import com.selfcontrol.deviceowner.AppBlockManager
@@ -48,8 +49,9 @@ object DeviceOwnerModule {
     @Singleton
     fun providePackageMonitor(
         @ApplicationContext context: Context,
-        appBlockManager: AppBlockManager
+        appBlockManager: AppBlockManager,
+        appRepository: AppRepository
     ): PackageMonitor {
-        return PackageMonitor(context, appBlockManager)
+        return PackageMonitor(context, appBlockManager, appRepository)
     }
 }

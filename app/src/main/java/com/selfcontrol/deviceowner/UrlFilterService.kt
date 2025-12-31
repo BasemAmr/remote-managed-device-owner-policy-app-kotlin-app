@@ -58,6 +58,9 @@ class UrlFilterVpnService : VpnService() {
     @Inject
     lateinit var violationRepository: ViolationRepository
     
+    @Inject
+    lateinit var prefs: com.selfcontrol.data.local.prefs.AppPreferences
+    
     private var vpnInterface: ParcelFileDescriptor? = null
     private var isRunning = false
     
@@ -189,6 +192,9 @@ class UrlFilterVpnService : VpnService() {
                     isRunning = true
                     Timber.i("[$TAG] VPN established successfully")
                     
+                    // Update VPN connection status
+                    prefs.setVpnConnected(true)
+                    
                     // Start packet processing
                     processPackets()
                 } else {
@@ -206,6 +212,11 @@ class UrlFilterVpnService : VpnService() {
      */
     private fun stopVpn() {
         isRunning = false
+        
+        // Update VPN connection status
+        serviceScope.launch {
+            prefs.setVpnConnected(false)
+        }
         
         vpnInterface?.close()
         vpnInterface = null
@@ -379,31 +390,85 @@ class UrlFilterVpnService : VpnService() {
     
     /**
      * Extract domain name from DNS query packet
+     * Enhanced with comprehensive bounds checking and validation
      */
     private fun extractDnsQuery(data: ByteArray, offset: Int): String? {
         return try {
-            if (data.size <= offset + 12) return null
+            // Validate minimum packet size (DNS header is 12 bytes)
+            if (data.size < offset + 12) {
+                Timber.w("[$TAG] DNS packet too small: ${data.size} bytes")
+                return null
+            }
             
             val queryOffset = offset + 12 // Skip DNS header
             val domain = StringBuilder()
             var i = queryOffset
             
+            // RFC 1035: Maximum domain name length is 253 characters
+            val maxDomainLength = 253
+            
             while (i < data.size && data[i].toInt() != 0) {
                 val labelLength = data[i].toInt() and 0xFF
+                
+                // Label length of 0 indicates end of domain name
                 if (labelLength == 0) break
                 
-                if (domain.isNotEmpty()) domain.append(".")
-                
-                for (j in 1..labelLength) {
-                    if (i + j < data.size) {
-                        domain.append(data[i + j].toInt().toChar())
-                    }
+                // Check for DNS compression pointer (starts with 0xC0)
+                // We don't support compression in this simple implementation
+                if (labelLength >= 0xC0) {
+                    Timber.d("[$TAG] DNS compression detected, skipping")
+                    return null
                 }
                 
+                // Validate label length doesn't exceed remaining buffer
+                if (i + labelLength >= data.size) {
+                    Timber.w("[$TAG] Label length $labelLength exceeds buffer at position $i")
+                    return null
+                }
+                
+                // Add separator between labels
+                if (domain.isNotEmpty()) {
+                    domain.append(".")
+                }
+                
+                // Extract label characters
+                for (j in 1..labelLength) {
+                    val charIndex = i + j
+                    
+                    // Double-check bounds
+                    if (charIndex >= data.size) {
+                        Timber.w("[$TAG] Character index $charIndex out of bounds")
+                        return null
+                    }
+                    
+                    domain.append(data[charIndex].toInt().toChar())
+                }
+                
+                // Check if domain is getting too long
+                if (domain.length > maxDomainLength) {
+                    Timber.w("[$TAG] Domain exceeds maximum length: ${domain.length}")
+                    return null
+                }
+                
+                // Move to next label
                 i += labelLength + 1
+                
+                // Safety check: prevent infinite loops
+                if (i > offset + 512) {
+                    Timber.w("[$TAG] DNS parsing exceeded safe offset")
+                    return null
+                }
             }
             
-            domain.toString().takeIf { it.isNotEmpty() }
+            val result = domain.toString()
+            
+            // Return domain only if it's not empty and is valid
+            if (result.isEmpty()) {
+                null
+            } else {
+                Timber.d("[$TAG] Extracted DNS query: $result")
+                result
+            }
             
         } catch (e: Exception) {
             Timber.w(e, "[$TAG] Failed to extract DNS query")
@@ -438,9 +503,9 @@ class UrlFilterVpnService : VpnService() {
         val channel = NotificationChannel(
             CHANNEL_ID,
             "URL Filter",
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "URL filtering VPN service"
+            description = "Critical VPN service for URL filtering - must remain visible"
             setShowBadge(false)
         }
         
@@ -452,10 +517,10 @@ class UrlFilterVpnService : VpnService() {
      * Create foreground service notification
      */
     private fun createNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setContentTitle("URL Filter Active")
-        .setContentText("Protecting you from blocked websites")
+        .setContentTitle("SelfControl VPN Active")
+        .setContentText("URL filtering is protecting your device")
         .setSmallIcon(R.drawable.ic_launcher_foreground)
-        .setPriority(NotificationCompat.PRIORITY_LOW)
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
         .setOngoing(true)
         .build()
 }

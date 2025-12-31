@@ -9,8 +9,9 @@ interface SelfControlApi {
     @POST("/api/device/register")
     suspend fun registerDevice(@Body body: Map<String, String>): ResponseWrapper<DeviceDto>
 
+    // make it accept a list of policies
     @GET("/api/device/policies")
-    suspend fun getPolicies(): ResponseWrapper<PolicyResponseDto>
+    suspend fun getPolicies(): ResponseWrapper<List<PolicyDto>>
     
     @POST("/api/device/policies")
     suspend fun applyPolicy(@Body policy: PolicyDto): ResponseWrapper<Unit>
@@ -31,7 +32,7 @@ interface SelfControlApi {
     suspend fun getAccessRequest(@Path("id") id: String): ResponseWrapper<RequestDto>
 
     @GET("/api/device/urls")
-    suspend fun getUrlBlacklist(): ResponseWrapper<List<UrlDto>>
+    suspend fun getUrlBlacklist(): List<UrlDto>
     
     @POST("/api/device/heartbeat")
     suspend fun sendHeartbeat(@Body data: Map<String, String>): ResponseWrapper<Unit>

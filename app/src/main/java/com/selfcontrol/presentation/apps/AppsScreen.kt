@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -101,7 +102,10 @@ fun AppItem(
     Card(
         onClick = onClick,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = if (app.isBlocked) 
+                MaterialTheme.colorScheme.surfaceVariant 
+            else 
+                MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -111,17 +115,43 @@ fun AppItem(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Using existing AppCard logic or custom row here. 
-            // Let's reuse the structure but add the switch
+            
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = app.name, style = MaterialTheme.typography.titleMedium)
-                Text(text = app.packageName, style = MaterialTheme.typography.bodySmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = app.name, style = MaterialTheme.typography.titleMedium)
+                    if (app.isLocked) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Locked",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+                
+                if (app.isLocked) {
+                    Text(
+                        text = "Managed by Administrator",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                } else if (app.isBlocked) {
+                    Text(
+                        text = "Blocked by User",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                } else {
+                    Text(text = app.packageName, style = MaterialTheme.typography.bodySmall)
+                }
             }
             
             Switch(
                 checked = app.isBlocked,
                 onCheckedChange = { onToggleBlock() },
+                enabled = !app.isLocked,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.error,
                     checkedTrackColor = MaterialTheme.colorScheme.errorContainer

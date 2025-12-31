@@ -29,7 +29,8 @@ object NetworkModule {
     @Provides
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
-        networkInterceptor: com.selfcontrol.data.remote.api.NetworkInterceptor
+        networkInterceptor: com.selfcontrol.data.remote.api.NetworkInterceptor,
+        apiLoggingInterceptor: com.selfcontrol.data.remote.api.ApiLoggingInterceptor
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
@@ -37,6 +38,7 @@ object NetworkModule {
 
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
+            .addInterceptor(apiLoggingInterceptor) // Log all API calls for debugging
             .addInterceptor(networkInterceptor)
             .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)

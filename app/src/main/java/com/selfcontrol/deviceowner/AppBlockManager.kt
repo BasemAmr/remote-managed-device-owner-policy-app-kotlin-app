@@ -32,23 +32,30 @@ class AppBlockManager @Inject constructor(
      * isLocked -> Prevents uninstall (Can use, but cannot delete)
      */
     suspend fun enforcePolicy(policy: AppPolicy) {
-        Timber.d("[AppBlockManager] Enforcing: ${policy.packageName} (Blocked: ${policy.isBlocked}, Locked: ${policy.isLocked})")
+        Timber.d("[AppBlockManager] Enforcing: ${policy.packageName} (Blocked: ${policy.isBlocked}, Locked: ${policy.isLocked}, LockAccessibility: ${policy.lockAccessibility})")
         
         try {
             // 1. Handle Usage Blocking (Hiding)
             // If expired, we force unblock (show app)
             val shouldHide = policy.isBlocked && !policy.isExpired()
-            deviceOwnerManager.setAppHidden(policy.packageName, shouldHide)
+            val hideResult = deviceOwnerManager.setAppHidden(policy.packageName, shouldHide)
+            Timber.i("[AppBlockManager] Set ${policy.packageName} hidden=$shouldHide, result=$hideResult")
 
             // 2. Handle Uninstall Blocking (Locking)
             // Even if expired, we might want to keep it locked, or unlock it. 
             // Usually, expiration applies to blocking usage. Locking is persistent.
             deviceOwnerManager.setAppUninstallBlocked(policy.packageName, policy.isLocked)
             
-            // 3. Save locally
+            // 3. Handle Accessibility Service Locking (Per-App)
+            if (policy.lockAccessibility) {
+                deviceOwnerManager.enforceAppAccessibilityService(policy.packageName)
+                Timber.i("[AppBlockManager] Locked accessibility service for ${policy.packageName}")
+            }
+            
+            // 4. Save locally
             policyRepository.savePolicy(policy)
             
-            // 4. Sync status back to server
+            // 5. Sync status back to server
             scope.launch {
                 try {
                     policyRepository.syncToServer(policy)

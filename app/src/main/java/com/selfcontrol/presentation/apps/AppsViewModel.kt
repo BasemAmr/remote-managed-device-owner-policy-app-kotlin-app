@@ -60,12 +60,28 @@ class AppsViewModel @Inject constructor(
     }
 
     private fun toggleAppBlock(packageName: String, isBlocked: Boolean) {
+        val app = _uiState.value.apps.find { it.packageName == packageName }
+        if (app?.isLocked == true) {
+            // Cannot toggle locked apps
+            return
+        }
+
         viewModelScope.launch {
-            // Optimistic update could happen here, but we rely on the flow from DB to update UI
+            // Optimistic update
+            val updatedApps = _uiState.value.apps.map {
+                if (it.packageName == packageName) it.copy(isBlocked = !isBlocked) else it
+            }
+            _uiState.update { 
+                it.copy(
+                    apps = updatedApps,
+                    filteredApps = filterList(updatedApps, it.searchQuery)
+                ) 
+            }
+
             val newPolicy = AppPolicy(
                 packageName = packageName,
                 isBlocked = !isBlocked, // Toggle
-                isLocked = false // Default
+                isLocked = app?.isLocked ?: false // Preserve existing lock state
             )
             
             when (val result = applyPolicyUseCase(newPolicy)) {
@@ -73,7 +89,17 @@ class AppsViewModel @Inject constructor(
                      // Success, the flow from loadApps will naturally update the UI when DB changes
                  }
                  is Result.Error -> {
-                     _uiState.update { it.copy(error = "Failed to update policy: ${result.message}") }
+                     // Revert on failure
+                    val revertedApps = _uiState.value.apps.map {
+                        if (it.packageName == packageName) it.copy(isBlocked = isBlocked) else it
+                    }
+                     _uiState.update { 
+                        it.copy(
+                            apps = revertedApps,
+                            filteredApps = filterList(revertedApps, it.searchQuery),
+                            error = "Failed to update policy: ${result.message}" 
+                        ) 
+                    }
                  }
                  else -> {}
             }

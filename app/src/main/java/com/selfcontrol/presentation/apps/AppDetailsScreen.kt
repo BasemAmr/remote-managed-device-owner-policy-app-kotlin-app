@@ -45,6 +45,8 @@ fun AppDetailsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showBlockConfirm by remember { mutableStateOf(false) }
     var showUnblockConfirm by remember { mutableStateOf(false) }
+    var showLockConfirm by remember { mutableStateOf(false) }
+    var showUnlockConfirm by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -185,8 +187,25 @@ fun AppDetailsScreen(
                         }
                     }
 
-                    // Actions
-                    if (app.isBlocked) {
+                    // Block/Unblock Actions
+                    if (app.isLocked) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                 Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                 Spacer(modifier = Modifier.width(8.dp))
+                                 Text(
+                                    "This app is locked by your administrator. You cannot unblock it locally.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                 )
+                             }
+                        }
+                    } else if (app.isBlocked) {
                         Button(
                             onClick = { showUnblockConfirm = true },
                             modifier = Modifier.fillMaxWidth(),
@@ -211,6 +230,30 @@ fun AppDetailsScreen(
 
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Block App")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Lock/Unlock Actions
+                    val isLocked = state.policy?.isLocked ?: false
+                    if (isLocked) {
+                        OutlinedButton(
+                            onClick = { showUnlockConfirm = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Filled.LockOpen, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Unlock App (Allow Uninstall)")
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { showLockConfirm = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Lock App (Prevent Uninstall)")
                         }
                     }
 
@@ -277,6 +320,30 @@ fun AppDetailsScreen(
             onDismiss = { showUnblockConfirm = false }
         )
     }
+
+    if (showLockConfirm) {
+        ConfirmDialog(
+            title = "Lock App?",
+            message = "Are you sure you want to lock ${state.app?.name}? This will prevent uninstallation.",
+            onConfirm = {
+                viewModel.onEvent(AppDetailsEvent.ToggleLock)
+                showLockConfirm = false
+            },
+            onDismiss = { showLockConfirm = false }
+        )
+    }
+
+    if (showUnlockConfirm) {
+        ConfirmDialog(
+            title = "Unlock App?",
+            message = "Are you sure you want to unlock ${state.app?.name}? This will allow uninstallation.",
+            onConfirm = {
+                viewModel.onEvent(AppDetailsEvent.ToggleLock)
+                showUnlockConfirm = false
+            },
+            onDismiss = { showUnlockConfirm = false }
+        )
+    }
 }
 
 @Composable
@@ -322,6 +389,7 @@ class AppDetailsViewModel @Inject constructor(
         when (event) {
             AppDetailsEvent.Refresh -> loadAppDetails()
             AppDetailsEvent.ToggleBlock -> toggleBlock()
+            AppDetailsEvent.ToggleLock -> toggleLock()
         }
     }
 
@@ -353,11 +421,51 @@ class AppDetailsViewModel @Inject constructor(
     private fun toggleBlock() {
         viewModelScope.launch {
             val currentApp = _uiState.value.app ?: return@launch
+            val currentPolicy = _uiState.value.policy
 
+            // Preserve the existing lock state when toggling block
+            // IMPORTANT: Reuse existing policy ID to update, not create new
             val newPolicy = AppPolicy(
+                id = currentPolicy?.id ?: java.util.UUID.randomUUID().toString(),
                 packageName = packageName,
                 isBlocked = !currentApp.isBlocked,
-                isLocked = false
+                isLocked = currentPolicy?.isLocked ?: false,
+                lockAccessibility = currentPolicy?.lockAccessibility ?: false,
+                reason = currentPolicy?.reason ?: "",
+                createdAt = currentPolicy?.createdAt ?: System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+                expiresAt = currentPolicy?.expiresAt
+            )
+
+            when (val result = applyPolicyUseCase(newPolicy)) {
+                is com.selfcontrol.domain.model.Result.Success -> {
+                    // Success - flow will update UI
+                }
+                is com.selfcontrol.domain.model.Result.Error -> {
+                    _uiState.update { it.copy(error = result.message) }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    private fun toggleLock() {
+        viewModelScope.launch {
+            val currentApp = _uiState.value.app ?: return@launch
+            val currentPolicy = _uiState.value.policy
+
+            // Preserve the existing block state when toggling lock
+            // IMPORTANT: Reuse existing policy ID to update, not create new
+            val newPolicy = AppPolicy(
+                id = currentPolicy?.id ?: java.util.UUID.randomUUID().toString(),
+                packageName = packageName,
+                isBlocked = currentPolicy?.isBlocked ?: false,
+                isLocked = !(currentPolicy?.isLocked ?: false),
+                lockAccessibility = currentPolicy?.lockAccessibility ?: false,
+                reason = currentPolicy?.reason ?: "",
+                createdAt = currentPolicy?.createdAt ?: System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+                expiresAt = currentPolicy?.expiresAt
             )
 
             when (val result = applyPolicyUseCase(newPolicy)) {
@@ -383,4 +491,5 @@ data class AppDetailsState(
 sealed class AppDetailsEvent {
     data object Refresh : AppDetailsEvent()
     data object ToggleBlock : AppDetailsEvent()
+    data object ToggleLock : AppDetailsEvent()
 }

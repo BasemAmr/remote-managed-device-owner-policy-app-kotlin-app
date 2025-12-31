@@ -33,11 +33,15 @@ class HeartbeatWorker @AssistedInject constructor(
     }
     
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        Timber.i("[$TAG] Sending heartbeat")
         val startTime = System.currentTimeMillis()
+        Timber.i("[$TAG] Heartbeat started at $startTime")
         
         return@withContext try {
             val deviceId = prefs.deviceId.first()
+            val authToken = prefs.authToken.first()
+            
+            Timber.d("[$TAG] Device ID: $deviceId")
+            Timber.d("[$TAG] Auth token present: ${authToken != null}")
             
             // Build heartbeat payload with device status
             val heartbeatData = mapOf(
@@ -47,12 +51,34 @@ class HeartbeatWorker @AssistedInject constructor(
                 "is_admin_active" to deviceOwnerManager.isAdminActive().toString()
             )
             
+            Timber.d("[$TAG] Sending heartbeat: $heartbeatData")
+            
             // Send heartbeat to server
             val response = api.sendHeartbeat(heartbeatData)
             
+            val duration = System.currentTimeMillis() - startTime
+            Timber.i("[$TAG] Response received in ${duration}ms")
+            Timber.i("[$TAG] Response success: ${response.success}, message: ${response.message}")
+            
+            // Check for remote lock signal
+            if (response.remoteLock) {
+                Timber.w("[$TAG] ⚠️ Remote lock signal received from server!")
+                try {
+                    val lockSuccess = deviceOwnerManager.lockDevice()
+                    if (lockSuccess) {
+                        Timber.i("[$TAG] Device locked successfully via remote signal")
+                    } else {
+                        Timber.e("[$TAG] Failed to lock device via remote signal")
+                    }
+                    return@withContext Result.success()
+                } catch (e: Exception) {
+                    Timber.e(e, "[$TAG] Error executing remote lock")
+                    return@withContext Result.failure()
+                }
+            }
+            
             if (response.success) {
-                val duration = System.currentTimeMillis() - startTime
-                Timber.i("[$TAG] Heartbeat sent successfully in ${duration}ms")
+                Timber.i("[$TAG] Heartbeat sent successfully")
                 Result.success()
             } else {
                 Timber.w("[$TAG] Server rejected heartbeat: ${response.message}")
@@ -65,7 +91,9 @@ class HeartbeatWorker @AssistedInject constructor(
             }
             
         } catch (e: Exception) {
-            Timber.e(e, "[$TAG] Heartbeat failed")
+            val duration = System.currentTimeMillis() - startTime
+            Timber.e(e, "[$TAG] Heartbeat failed after ${duration}ms")
+            Timber.e("[$TAG] Error: ${e.javaClass.simpleName}, Message: ${e.message}")
             
             if (runAttemptCount < 3) {
                 Timber.i("[$TAG] Retrying... Attempt ${runAttemptCount + 1}/3")

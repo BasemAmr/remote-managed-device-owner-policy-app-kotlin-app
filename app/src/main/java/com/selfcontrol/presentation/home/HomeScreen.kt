@@ -1,22 +1,16 @@
 ﻿package com.selfcontrol.presentation.home
 
 import android.text.format.DateUtils
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.QuestionAnswer
-import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +58,11 @@ fun HomeScreen(
                     onClick = { if (!state.deviceOwnerActive) viewModel.onEvent(HomeEvent.GrantDeviceOwner) }
                 )
 
+                // VPN Status Card
+                VpnStatusCard(
+                    isConnected = state.vpnConnected
+                )
+
                 // Stats Grid
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -101,12 +100,41 @@ fun HomeScreen(
                     )
                     StatCard(
                         title = "Requests",
-                        value = "0", // TODO: Wire up pending requests count
+                        value = "0",
                         icon = Icons.Filled.QuestionAnswer,
                         color = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.weight(1f),
                         onClick = { navigationActions.navigateToRequests() }
                     )
+                }
+
+                // ==================== SYNC ACTIONS ====================
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                SyncButtonGroup(
+                    pendingSyncCount = state.pendingSyncCount,
+                    isSyncingApps = state.isSyncingApps,
+                    isSyncingPolicies = state.isSyncingPolicies,
+                    appSyncMessage = state.syncStatusMessage,
+                    policySyncMessage = state.policySyncStatusMessage,
+                    onSyncApps = { viewModel.onEvent(HomeEvent.SyncAllApps) },
+                    onSyncPolicies = { viewModel.onEvent(HomeEvent.SyncAllPolicies) }
+                )
+
+                // EMERGENCY REMOVE BUTTON (Developer Only)
+                if (state.deviceOwnerActive) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = { viewModel.onEvent(HomeEvent.RemoveDeviceOwner) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.DeleteForever, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("CLEAR DEVICE OWNER (DEV)")
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -122,6 +150,197 @@ fun HomeScreen(
             }
 
             LoadingDialog(isLoading = state.isLoading)
+        }
+    }
+}
+
+@Composable
+fun SyncButtonGroup(
+    pendingSyncCount: Int,
+    isSyncingApps: Boolean,
+    isSyncingPolicies: Boolean,
+    appSyncMessage: String?,
+    policySyncMessage: String?,
+    onSyncApps: () -> Unit,
+    onSyncPolicies: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SyncButton(
+                text = "Sync Apps",
+                isSyncing = isSyncingApps,
+                pendingCount = pendingSyncCount,
+                onClick = onSyncApps,
+                modifier = Modifier.weight(1f),
+                containerColor = if (pendingSyncCount > 0) 
+                    MaterialTheme.colorScheme.tertiary 
+                else 
+                    MaterialTheme.colorScheme.primary
+            )
+            
+            SyncButton(
+                text = "Sync Policies",
+                isSyncing = isSyncingPolicies,
+                onClick = onSyncPolicies,
+                modifier = Modifier.weight(1f),
+                containerColor = MaterialTheme.colorScheme.secondary
+            )
+        }
+        
+        // Status Messages
+        appSyncMessage?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (it.contains("successful", ignoreCase = true)) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.error
+            )
+        }
+        
+        policySyncMessage?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (it.contains("synced", ignoreCase = true)) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.error
+            )
+        }
+        
+        if (pendingSyncCount > 0 && !isSyncingApps) {
+            Text(
+                text = "$pendingSyncCount apps pending upload",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.tertiary
+            )
+        }
+    }
+}
+
+@Composable
+fun SyncButton(
+    text: String,
+    isSyncing: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    pendingCount: Int = 0,
+    containerColor: Color = MaterialTheme.colorScheme.primary
+) {
+    Button(
+        onClick = onClick,
+        enabled = !isSyncing,
+        colors = ButtonDefaults.buttonColors(containerColor = containerColor),
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+    ) {
+        if (isSyncing) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 2.dp
+            )
+        } else {
+            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(text, style = MaterialTheme.typography.labelLarge)
+            
+            if (pendingCount > 0) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Badge(containerColor = MaterialTheme.colorScheme.error) {
+                    Text(pendingCount.toString())
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Legacy Sync Apps Now Button - kept for compatibility if needed, but replaced by SyncButtonGroup
+ */
+@Composable
+fun SyncAppsButton(
+    pendingSyncCount: Int,
+    isSyncing: Boolean,
+    syncStatusMessage: String?,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Button(
+            onClick = onClick,
+            enabled = !isSyncing,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (pendingSyncCount > 0) 
+                    MaterialTheme.colorScheme.tertiary 
+                else 
+                    MaterialTheme.colorScheme.primary
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (isSyncing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("Syncing...")
+            } else {
+                Icon(Icons.Default.Sync, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Sync Apps Now")
+                
+                // Show pending count badge if > 0
+                if (pendingSyncCount > 0) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.error
+                    ) {
+                        Text(
+                            text = pendingSyncCount.toString(),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Show sync status message
+        if (syncStatusMessage != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = syncStatusMessage,
+                style = MaterialTheme.typography.bodySmall,
+                color = when {
+                    syncStatusMessage.contains("successful", ignoreCase = true) -> 
+                        MaterialTheme.colorScheme.primary
+                    syncStatusMessage.contains("failed", ignoreCase = true) -> 
+                        MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+        }
+        
+        // Show pending apps indicator
+        if (pendingSyncCount > 0 && !isSyncing) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "$pendingSyncCount app${if (pendingSyncCount > 1) "s" else ""} pending sync",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary
+            )
         }
     }
 }
@@ -196,6 +415,59 @@ fun StatCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+@Composable
+fun VpnStatusCard(
+    isConnected: Boolean
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (isConnected) 
+                MaterialTheme.colorScheme.primaryContainer 
+            else 
+                MaterialTheme.colorScheme.errorContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isConnected) Icons.Default.Lock else Icons.Default.Warning,
+                contentDescription = null,
+                tint = if (isConnected) 
+                    MaterialTheme.colorScheme.onPrimaryContainer 
+                else 
+                    MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = if (isConnected) "🔒 VPN Protected" else "⚠️ VPN Disconnected",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isConnected) 
+                        MaterialTheme.colorScheme.onPrimaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.onErrorContainer
+                )
+                Text(
+                    text = if (isConnected) 
+                        "URL filtering is active" 
+                    else 
+                        "URL filtering is not active",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isConnected) 
+                        MaterialTheme.colorScheme.onPrimaryContainer 
+                    else 
+                        MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
         }
     }
 }

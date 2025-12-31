@@ -24,7 +24,7 @@ class DeviceSetupRepository @Inject constructor(
 ) {
     
     companion object {
-        private const val MAX_SYNC_RETRIES = 30
+        private const val MAX_SYNC_RETRIES = 3
         private const val RETRY_DELAY_MS = 5000L
         private const val TOKEN_SAVE_DELAY_MS = 500L
     }

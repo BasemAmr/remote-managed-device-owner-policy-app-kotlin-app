@@ -77,9 +77,22 @@ class PolicyRepositoryImpl @Inject constructor(
     
     override suspend fun savePolicy(policy: AppPolicy): Result<Unit> {
         return try {
-            val entity = domainToEntity(policy)
+            // Check if a policy already exists for this package
+            val existingPolicy = policyDao.getPolicyForApp(policy.packageName)
+            
+            // If exists, preserve the ID and createdAt timestamp
+            val policyToSave = if (existingPolicy != null) {
+                policy.copy(
+                    id = existingPolicy.id,
+                    createdAt = existingPolicy.createdAt
+                )
+            } else {
+                policy
+            }
+            
+            val entity = domainToEntity(policyToSave)
             policyDao.insertPolicy(entity)
-            Timber.d("[PolicyRepo] Saved policy for ${policy.packageName}")
+            Timber.d("[PolicyRepo] Saved policy for ${policy.packageName} (ID: ${policyToSave.id})")
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "[PolicyRepo] Failed to save policy")
@@ -117,8 +130,8 @@ class PolicyRepositoryImpl @Inject constructor(
             val response = api.getPolicies()
             
             if (response.success && response.data != null) {
-                // Unwrap the PolicyResponseDto to get the list of policies
-                val policies = mapper.toDomainList(response.data.policies)
+                // Get the list of policies directly from response data
+                val policies = mapper.toDomainList(response.data)
                 
                 // Save to local database (offline-first)
                 savePolicies(policies)

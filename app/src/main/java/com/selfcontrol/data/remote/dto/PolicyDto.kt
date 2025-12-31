@@ -21,6 +21,9 @@ data class PolicyDto(
     @SerializedName("is_locked")
     val isLocked: Boolean,
     
+    @SerializedName("lock_accessibility")
+    val lockAccessibility: Boolean = false,
+    
     @SerializedName("expires_at")
     val expiresAt: Long? = null,
     

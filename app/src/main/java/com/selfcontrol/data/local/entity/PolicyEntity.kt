@@ -11,15 +11,7 @@ import java.util.UUID
  */
 @Entity(
     tableName = "policies",
-    foreignKeys = [
-        ForeignKey(
-            entity = AppEntity::class,
-            parentColumns = ["packageName"],
-            childColumns = ["packageName"],
-            onDelete = ForeignKey.CASCADE
-        )
-    ],
-    indices = [Index("packageName")]
+    indices = [Index(value = ["packageName"], unique = true)]
 )
 data class PolicyEntity(
     @PrimaryKey
@@ -27,6 +19,7 @@ data class PolicyEntity(
     val packageName: String,
     val isBlocked: Boolean,
     val isLocked: Boolean,
+    val lockAccessibility: Boolean = false,
     val expiresAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),

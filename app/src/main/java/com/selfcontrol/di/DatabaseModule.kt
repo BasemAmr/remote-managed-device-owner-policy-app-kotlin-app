@@ -2,6 +2,8 @@
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.selfcontrol.data.local.dao.*
 import com.selfcontrol.data.local.database.DatabaseCallback
 import com.selfcontrol.data.local.database.SelfControlDatabase
@@ -17,6 +19,50 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
+
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Add lockAccessibility column to policies table
+            database.execSQL("ALTER TABLE policies ADD COLUMN lockAccessibility INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+    
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Create api_logs table for debugging
+            database.execSQL("""
+                CREATE TABLE IF NOT EXISTS api_logs (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    url TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    requestBody TEXT,
+                    responseCode INTEGER,
+                    responseBody TEXT,
+                    hasToken INTEGER NOT NULL,
+                    timestamp INTEGER NOT NULL,
+                    duration INTEGER NOT NULL,
+                    error TEXT
+                )
+            """)
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_api_logs_timestamp ON api_logs(timestamp)")
+        }
+    }
+    
+    /**
+     * Migration 4->5: Add sync queue fields to apps table for offline-first sync support
+     */
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Add sync status tracking columns to apps table
+            database.execSQL("ALTER TABLE apps ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'SYNCED'")
+            database.execSQL("ALTER TABLE apps ADD COLUMN syncRetryCount INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE apps ADD COLUMN lastSyncAttempt INTEGER NOT NULL DEFAULT 0")
+            database.execSQL("ALTER TABLE apps ADD COLUMN needsImmediateSync INTEGER NOT NULL DEFAULT 0")
+            
+            // Create index for efficient pending sync queries
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_apps_syncStatus ON apps(syncStatus)")
+        }
+    }
 
     @Singleton
     @Provides
@@ -42,7 +88,8 @@ object DatabaseModule {
         // To properly inject callback that uses Provider, we need to let Hilt provide it.
         // But Room.databaseBuilder needs the instance.
         // Let's rely on standard creation for now.
-        .fallbackToDestructiveMigration() // For dev phase
+        .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+        .fallbackToDestructiveMigration() // For dev phase, but migrations take precedence
         .build()
     }
     
@@ -64,4 +111,7 @@ object DatabaseModule {
     
     @Provides
     fun provideSettingsDao(db: SelfControlDatabase): SettingsDao = db.settingsDao()
+    
+    @Provides
+    fun provideApiLogDao(db: SelfControlDatabase): ApiLogDao = db.apiLogDao()
 }

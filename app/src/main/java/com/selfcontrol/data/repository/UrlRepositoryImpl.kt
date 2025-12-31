@@ -82,22 +82,18 @@ class UrlRepositoryImpl @Inject constructor(
                 prefs.deviceId.firstOrNull() ?: return Result.Error(Exception("No device ID"))
             }
             
-            val response = api.getUrlBlacklist()
+            val urlDtos = api.getUrlBlacklist()
             
-            if (response.success && response.data != null) {
-                val urls = response.data.map { dto -> mapper.dtoToDomain(dto) }
-                
-                // Save to local database
-                saveUrls(urls)
-                
-                // Update sync timestamp
-                prefs.setLastUrlSync(System.currentTimeMillis())
-                
-                Timber.i("[UrlRepo] Synced ${urls.size} URL patterns from server")
-                Result.Success(urls)
-            } else {
-                Result.Error(Exception(response.message ?: "Failed to sync URLs"))
-            }
+            val urls = urlDtos.map { dto -> mapper.dtoToDomain(dto) }
+            
+            // Save to local database
+            saveUrls(urls)
+            
+            // Update sync timestamp
+            prefs.setLastUrlSync(System.currentTimeMillis())
+            
+            Timber.i("[UrlRepo] Synced ${urls.size} URL patterns from server")
+            Result.Success(urls)
             
         } catch (e: Exception) {
             Timber.e(e, "[UrlRepo] Failed to sync URL blacklist")

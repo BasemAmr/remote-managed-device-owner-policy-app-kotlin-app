@@ -13,7 +13,8 @@ class AuthInterceptor @Inject constructor(
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val requestBuilder = chain.request().newBuilder()
+        val request = chain.request()
+        val requestBuilder = request.newBuilder()
 
         // 1. FORCE WAIT for the token (Blocking call)
         // This ensures we don't proceed until we check the disk
@@ -26,14 +27,21 @@ class AuthInterceptor @Inject constructor(
             }
         }
 
-        // 2. Log exactly what is happening
+        // 2. Log detailed information for debugging
+        val url = request.url.toString()
+        Timber.i("[AuthInterceptor] Request URL: $url")
+        Timber.i("[AuthInterceptor] Token present: ${!token.isNullOrBlank()}, Length: ${token?.length ?: 0}")
+        
         if (token.isNullOrBlank()) {
             Timber.w("[AuthInterceptor] ⚠️ WARNING: No auth token found! Request will likely fail.")
         } else {
-            // Timber.d("[AuthInterceptor] Attaching token: ${token.take(10)}...") // Uncomment to debug
+            Timber.d("[AuthInterceptor] Token preview: ${token.take(20)}...")
             requestBuilder.addHeader("Authorization", "Bearer $token")
         }
+        
+        val response = chain.proceed(requestBuilder.build())
+        Timber.i("[AuthInterceptor] Request sent with auth: ${!token.isNullOrBlank()}, Response code: ${response.code}")
 
-        return chain.proceed(requestBuilder.build())
+        return response
     }
 }

@@ -4,11 +4,17 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import com.selfcontrol.deviceowner.AppBlockManager
+import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.selfcontrol.data.worker.AppSyncWorker
+import com.selfcontrol.domain.repository.AppRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -21,7 +27,8 @@ import javax.inject.Singleton
 @Singleton
 class PackageMonitor @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val appBlockManager: AppBlockManager
+    private val appBlockManager: AppBlockManager,
+    private val appRepository: AppRepository
 ) {
     
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -107,7 +114,10 @@ class PackageMonitor @Inject constructor(
         
         scope.launch {
             try {
-                // Check if there's a policy for this app
+                // Step 1: Refresh local database to include the new app
+                appRepository.refreshInstalledApps()
+                
+                // Step 2: Check if there's a policy for this app
                 val isBlocked = appBlockManager.isAppBlocked(packageName)
                 
                 if (isBlocked) {
@@ -115,6 +125,9 @@ class PackageMonitor @Inject constructor(
                     appBlockManager.blockApp(packageName)
                     Timber.i("[PackageMonitor] Blocked newly installed app: $packageName")
                 }
+                
+                // Step 3: Trigger backend sync
+                triggerAppSync()
                 
             } catch (e: Exception) {
                 Timber.e(e, "[PackageMonitor] Failed to handle package install: $packageName")
@@ -126,10 +139,64 @@ class PackageMonitor @Inject constructor(
      * Handle when a package is uninstalled
      */
     private fun handlePackageUninstalled(packageName: String) {
-        Timber.i("[PackageMonitor] Package uninstalled: $packageName")
+        Timber.i("[PackageMonitor] Package uninstalled event: $packageName")
         
-        // No action needed for uninstall
-        // Policy will remain in database for if app is reinstalled
+        scope.launch {
+            try {
+                // IMPORTANT: setApplicationHidden triggers ACTION_PACKAGE_REMOVED.
+                // We must verify if the app is truly uninstalled or just hidden.
+                val isTrulyUninstalled = try {
+                    context.packageManager.getPackageInfo(
+                        packageName, 
+                        android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES
+                    )
+                    false // Still exists in some form (likely hidden)
+                } catch (e: android.content.pm.PackageManager.NameNotFoundException) {
+                    true // Truly gone
+                }
+
+                if (isTrulyUninstalled) {
+                    Timber.i("[PackageMonitor] Package $packageName is truly uninstalled. Deleting.")
+                    // Step 1: Remove from local database
+                    appRepository.deleteApp(packageName)
+                    
+                    // Step 2: Trigger backend sync (backend cleanup will remove it)
+                    triggerAppSync()
+                } else {
+                    Timber.i("[PackageMonitor] Package $packageName was hidden/blocked, not uninstalled. Keeping in list.")
+                    // Trigger sync anyway to update state, but don't delete locally
+                    triggerAppSync()
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "[PackageMonitor] Failed to handle package uninstall: $packageName")
+            }
+        }
+    }
+
+    /**
+     * Trigger background app sync
+     */
+    private fun triggerAppSync() {
+        val workManager = WorkManager.getInstance(context)
+        
+        // Give local DB a moment to finalize
+        val inputData = Data.Builder()
+            .putBoolean(AppSyncWorker.KEY_IS_MANUAL_SYNC, false)
+            .putBoolean(AppSyncWorker.KEY_IS_IMMEDIATE_SYNC, true)
+            .build()
+
+        val syncRequest = OneTimeWorkRequestBuilder<AppSyncWorker>()
+            .setInputData(inputData)
+            .addTag("auto_package_sync")
+            .build()
+
+        workManager.enqueueUniqueWork(
+            "auto_package_sync",
+            ExistingWorkPolicy.REPLACE,
+            syncRequest
+        )
+        
+        Timber.d("[PackageMonitor] 🚀 Triggered automatic app sync")
     }
     
     /**

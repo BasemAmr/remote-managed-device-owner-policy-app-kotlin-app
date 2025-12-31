@@ -26,6 +26,9 @@ class BootReceiver : BroadcastReceiver() {
     @Inject
     lateinit var appBlockManager: AppBlockManager
     
+    @Inject
+    lateinit var deviceOwnerManager: com.selfcontrol.deviceowner.DeviceOwnerManager
+    
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     override fun onReceive(context: Context?, intent: Intent?) {
@@ -46,6 +49,20 @@ class BootReceiver : BroadcastReceiver() {
                     Timber.i("[BootReceiver] Policies re-applied after boot")
                 } catch (e: Exception) {
                     Timber.e(e, "[BootReceiver] Failed to re-apply policies")
+                }
+            }
+            
+            // Enforce accessibility service on boot
+            deviceOwnerManager.enforceAccessibilityService()
+            Timber.i("[BootReceiver] Accessibility service enforced on boot")
+            
+            // Restart VPN service for URL filtering
+            context?.let { ctx ->
+                try {
+                    com.selfcontrol.deviceowner.UrlFilterVpnService.start(ctx)
+                    Timber.i("[BootReceiver] VPN service restarted after boot")
+                } catch (e: Exception) {
+                    Timber.e(e, "[BootReceiver] Failed to restart VPN service")
                 }
             }
             

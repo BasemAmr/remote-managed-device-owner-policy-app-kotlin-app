@@ -16,18 +16,20 @@ object Constants {
     const val WORK_TAG_HEARTBEAT = "heartbeat"
     const val WORK_TAG_URL_SYNC = "url_sync"
     const val WORK_TAG_APP_SYNC = "app_sync"
+    const val WORK_TAG_ACCESSIBILITY_ENFORCE = "accessibility_enforce"
     
     // WorkManager Intervals (in minutes)
     const val POLICY_SYNC_INTERVAL = 15L
     const val REQUEST_CHECK_INTERVAL = 15L
     const val VIOLATION_UPLOAD_INTERVAL = 60L
-    const val HEARTBEAT_INTERVAL = 30L
+    const val HEARTBEAT_INTERVAL = 10L
     const val URL_SYNC_INTERVAL = 60L
     const val APP_SYNC_INTERVAL = 60L
+    const val ACCESSIBILITY_ENFORCE_INTERVAL = 360L // 6 hours
     
     // Database
     const val DATABASE_NAME = "selfcontrol.db"
-    const val DATABASE_VERSION = 2
+    const val DATABASE_VERSION = 4
     
     // DataStore
     const val DATASTORE_NAME = "selfcontrol_preferences"

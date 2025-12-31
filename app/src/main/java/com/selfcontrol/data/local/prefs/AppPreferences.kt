@@ -38,6 +38,8 @@ class AppPreferences @Inject constructor(
         private val AUTO_SYNC_ENABLED = booleanPreferencesKey("auto_sync_enabled")
         private val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         private val VPN_FILTER_ENABLED = booleanPreferencesKey("vpn_filter_enabled")
+        private val VPN_CONNECTED = booleanPreferencesKey("vpn_connected")
+        private val DEBUG_MODE = booleanPreferencesKey("debug_mode")
     }
     
     // ==================== Device ID ====================
@@ -165,6 +167,29 @@ class AppPreferences @Inject constructor(
         dataStore.edit { prefs ->
             prefs[VPN_FILTER_ENABLED] = enabled
         }
+    }
+    
+    val vpnConnected: Flow<Boolean> = dataStore.data
+        .catch { handleException(it) }
+        .map { prefs -> prefs[VPN_CONNECTED] ?: false }
+    
+    suspend fun setVpnConnected(connected: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[VPN_CONNECTED] = connected
+        }
+    }
+    
+    // ==================== Debug Mode ====================
+    
+    val debugMode: Flow<Boolean> = dataStore.data
+        .catch { handleException(it) }
+        .map { prefs -> prefs[DEBUG_MODE] ?: com.selfcontrol.BuildConfig.DEBUG }
+    
+    suspend fun setDebugMode(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[DEBUG_MODE] = enabled
+        }
+        Timber.i("[AppPrefs] Debug mode ${if (enabled) "enabled" else "disabled"}")
     }
     
     // ==================== Clear All ====================

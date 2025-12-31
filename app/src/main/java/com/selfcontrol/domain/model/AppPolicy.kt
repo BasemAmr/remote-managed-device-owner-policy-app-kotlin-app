@@ -8,6 +8,7 @@ data class AppPolicy(
     val packageName: String,
     val isBlocked: Boolean = false,
     val isLocked: Boolean = false,
+    val lockAccessibility: Boolean = false,
     val reason: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
