@@ -16,9 +16,11 @@ import com.selfcontrol.data.local.entity.*
         RequestEntity::class,
         ViolationEntity::class,
         SettingsEntity::class,
-        ApiLogEntity::class
+        ApiLogEntity::class,
+        AccessibilityServiceEntity::class,
+        PermissionEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class SelfControlDatabase : RoomDatabase() {
@@ -30,6 +32,8 @@ abstract class SelfControlDatabase : RoomDatabase() {
     abstract fun violationDao(): ViolationDao
     abstract fun settingsDao(): SettingsDao
     abstract fun apiLogDao(): ApiLogDao
+    abstract fun accessibilityServiceDao(): AccessibilityServiceDao
+    abstract fun permissionDao(): PermissionDao
     
     companion object {
         const val DATABASE_NAME = "selfcontrol.db"

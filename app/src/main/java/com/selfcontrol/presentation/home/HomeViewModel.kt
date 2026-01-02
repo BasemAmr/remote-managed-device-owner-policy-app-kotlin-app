@@ -10,6 +10,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.selfcontrol.data.worker.AppSyncWorker
 import com.selfcontrol.data.worker.PolicySyncWorker
+import com.selfcontrol.data.worker.UrlBlacklistSyncWorker
 import com.selfcontrol.domain.repository.AppRepository
 import com.selfcontrol.domain.repository.ViolationRepository
 import com.selfcontrol.data.local.prefs.AppPreferences
@@ -27,6 +28,7 @@ class HomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val appRepository: AppRepository,
     private val violationRepository: ViolationRepository,
+    private val urlRepository: com.selfcontrol.domain.repository.UrlRepository,
     private val prefs: AppPreferences,
     private val deviceOwnerManager: DeviceOwnerManager
 ) : ViewModel() {
@@ -56,6 +58,9 @@ class HomeViewModel @Inject constructor(
             }
             HomeEvent.SyncAllPolicies -> {
                 triggerManualPolicySync()
+            }
+            HomeEvent.SyncAllUrls -> {
+                triggerManualUrlSync()
             }
         }
     }
@@ -188,6 +193,43 @@ class HomeViewModel @Inject constructor(
                         }
                     }
             }
+
+            // Observe URL Sync
+            launch {
+                workManager.getWorkInfosForUniqueWorkFlow("manual_url_sync")
+                    .collect { workInfos ->
+                        val workInfo = workInfos.firstOrNull()
+                        when (workInfo?.state) {
+                            WorkInfo.State.RUNNING -> {
+                                _uiState.update { 
+                                    it.copy(
+                                        isSyncingUrls = true, 
+                                        urlSyncStatusMessage = "Syncing URLs..."
+                                    ) 
+                                }
+                            }
+                            WorkInfo.State.SUCCEEDED -> {
+                                _uiState.update { 
+                                    it.copy(
+                                        isSyncingUrls = false, 
+                                        urlSyncStatusMessage = "URLs synced!"
+                                    ) 
+                                }
+                                delay(3000)
+                                _uiState.update { it.copy(urlSyncStatusMessage = null) }
+                            }
+                            WorkInfo.State.FAILED -> {
+                                _uiState.update { 
+                                    it.copy(
+                                        isSyncingUrls = false, 
+                                        urlSyncStatusMessage = "URL sync failed"
+                                    ) 
+                                }
+                            }
+                            else -> { /* No action needed */ }
+                        }
+                    }
+            }
         }
     }
 
@@ -224,6 +266,39 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun triggerManualUrlSync() {
+        viewModelScope.launch {
+            try {
+                _uiState.update { 
+                    it.copy(
+                        isSyncingUrls = true, 
+                        urlSyncStatusMessage = "Syncing URLs..."
+                    ) 
+                }
+
+                val urlSyncWork = OneTimeWorkRequestBuilder<UrlBlacklistSyncWorker>()
+                    .addTag("manual_url_sync")
+                    .build()
+
+                workManager.enqueueUniqueWork(
+                    "manual_url_sync",
+                    ExistingWorkPolicy.REPLACE,
+                    urlSyncWork
+                )
+
+                Timber.i("[HomeViewModel] ⚡ Manual URL sync triggered")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to trigger manual URL sync")
+                _uiState.update { 
+                    it.copy(
+                        isSyncingUrls = false,
+                        urlSyncStatusMessage = "Sync failed"
+                    )
+                }
+            }
+        }
+    }
+
     private fun loadData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -246,13 +321,15 @@ class HomeViewModel @Inject constructor(
                 )
             }
 
-            // Combine with the 6th flow (pending sync count)
+            // Combine with pending sync count and blocked URL count
             combine(
                 baseFlow,
-                appRepository.observePendingSyncCount()
-            ) { baseState, pendingCount ->
+                appRepository.observePendingSyncCount(),
+                urlRepository.observeBlockedUrls()
+            ) { baseState, pendingCount, blockedUrls ->
                 baseState.copy(
                     pendingSyncCount = pendingCount,
+                    blockedUrlCount = blockedUrls.size,
                     isLoading = false
                 )
             }.catch { e ->

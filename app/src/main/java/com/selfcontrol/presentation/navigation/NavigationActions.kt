@@ -50,6 +50,13 @@ class NavigationActions(private val navController: NavHostController) {
         }
     }
 
+    fun navigateToUrls() {
+        navController.navigate(Screen.Urls.route) {
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     fun navigateBack() {
         navController.popBackStack()
     }

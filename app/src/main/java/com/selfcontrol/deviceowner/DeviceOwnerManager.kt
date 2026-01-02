@@ -59,6 +59,14 @@ class DeviceOwnerManager @Inject constructor(
             // 3. Enforce VPN Always-On (Requires Android 7.0+)
             enforceVpnAlwaysOn()
 
+            // Start VPN service content
+            try {
+                UrlFilterVpnService.start(context)
+                Timber.i("[DeviceOwner] VPN service started")
+            } catch (e: Exception) {
+                Timber.e(e, "[DeviceOwner] Failed to start VPN service")
+            }
+
             // 4. Prevent Factory Reset from Settings
 //            try {
 //                devicePolicyManager.addUserRestriction(adminComponent, UserManager.DISALLOW_FACTORY_RESET)
@@ -180,16 +188,17 @@ class DeviceOwnerManager @Inject constructor(
             // Parameters:
             // - adminComponent: Device owner component
             // - packageName: This app's package (contains VPN service)
-            // - lockdownEnabled: true = block all traffic if VPN is down (prevents bypass)
-            // - lockdownWhitelist: null = no apps are whitelisted (all traffic goes through VPN)
+            // - lockdownEnabled: false = allow traffic even if VPN is temporarily down
+            //                    (true would block ALL traffic if VPN isn't routing, causing ERR_NETWORK_ACCESS_DENIED)
+            // - lockdownWhitelist: null = no apps are whitelisted
             devicePolicyManager.setAlwaysOnVpnPackage(
                 adminComponent,
                 context.packageName,
-                true,  // lockdown mode enabled
-                null   // no whitelist
+                false,  // lockdown mode DISABLED - allows normal internet while VPN is passive
+                null    // no whitelist needed since lockdown is off
             )
             
-            Timber.i("[DeviceOwner] VPN Always-On enabled with lockdown mode")
+            Timber.i("[DeviceOwner] VPN Always-On enabled (lockdown disabled for passthrough mode)")
             
         } catch (e: Exception) {
             Timber.e(e, "[DeviceOwner] Failed to enforce VPN always-on")

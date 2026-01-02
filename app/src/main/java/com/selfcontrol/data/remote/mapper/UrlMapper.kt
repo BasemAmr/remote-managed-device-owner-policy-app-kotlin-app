@@ -15,12 +15,12 @@ class UrlMapper @Inject constructor() {
     fun dtoToDomain(dto: UrlDto): UrlBlacklist {
         return UrlBlacklist(
             id = dto.id,
-            url = dto.url.ifEmpty { dto.pattern },
+            url = dto.url?.ifEmpty { dto.pattern } ?: dto.pattern,
             pattern = dto.pattern,
             description = dto.description ?: "",
             deviceId = dto.deviceId,
-            isBlocked = dto.isBlocked,
-            isActive = dto.isActive,
+            isBlocked = dto.isBlocked ?: true,  // Default to true if not sent by backend
+            isActive = dto.isActive ?: true,     // Default to true if not sent by backend
             isSynced = true,
             createdAt = dto.createdAt,
             updatedAt = dto.updatedAt
@@ -44,7 +44,7 @@ class UrlMapper @Inject constructor() {
     fun entityToDomain(entity: UrlEntity): UrlBlacklist {
         return UrlBlacklist(
             id = entity.id,
-            url = entity.url.ifEmpty { entity.pattern },
+            url = entity.url?.ifEmpty { entity.pattern } ?: entity.pattern,
             pattern = entity.pattern,
             description = entity.description ?: "",
             deviceId = entity.deviceId,
@@ -74,12 +74,12 @@ class UrlMapper @Inject constructor() {
     fun dtoToEntity(dto: UrlDto): UrlEntity {
         return UrlEntity(
             id = dto.id,
-            url = dto.url.ifEmpty { dto.pattern },
+            url = dto.url?.ifEmpty { dto.pattern } ?: dto.pattern,
             pattern = dto.pattern,
             description = dto.description,
             deviceId = dto.deviceId,
-            isBlocked = dto.isBlocked,
-            isActive = dto.isActive,
+            isBlocked = dto.isBlocked ?: true,  // Default to true if not sent by backend
+            isActive = dto.isActive ?: true,     // Default to true if not sent by backend
             isSynced = true,
             createdAt = dto.createdAt,
             updatedAt = dto.updatedAt

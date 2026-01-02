@@ -10,4 +10,7 @@ sealed class HomeEvent {
     
     /** Manual "Sync All Policies" button clicked */
     data object SyncAllPolicies : HomeEvent()
+    
+    /** Manual "Sync URLs" button clicked */
+    data object SyncAllUrls : HomeEvent()
 }

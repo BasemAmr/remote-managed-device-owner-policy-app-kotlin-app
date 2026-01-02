@@ -10,6 +10,7 @@ sealed class Screen(val route: String) {
     data object CreateRequest : Screen("requests/create")
     data object Violations : Screen("violations")
     data object Settings : Screen("settings")
+    data object Urls : Screen("urls")
     data object Blocked : Screen("blocked/{packageName}") {
         fun createRoute(packageName: String) = "blocked/$packageName"
     }

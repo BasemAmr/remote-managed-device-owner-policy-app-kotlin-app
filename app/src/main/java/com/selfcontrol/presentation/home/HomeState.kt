@@ -6,6 +6,7 @@
 data class HomeState(
     val blockedAppCount: Int = 0,
     val totalAppCount: Int = 0,
+    val blockedUrlCount: Int = 0,
     val deviceOwnerActive: Boolean = false,
     val vpnConnected: Boolean = false,
     val lastSyncTime: Long = 0,
@@ -25,6 +26,12 @@ data class HomeState(
     /** Whether policies are currently being synced */
     val isSyncingPolicies: Boolean = false,
     /** Message to show for policy sync status */
-    val policySyncStatusMessage: String? = null
+    val policySyncStatusMessage: String? = null,
+    
+    // ==================== URL Sync Status ====================
+    /** Whether URLs are currently being synced */
+    val isSyncingUrls: Boolean = false,
+    /** Message to show for URL sync status */
+    val urlSyncStatusMessage: String? = null
 )
 

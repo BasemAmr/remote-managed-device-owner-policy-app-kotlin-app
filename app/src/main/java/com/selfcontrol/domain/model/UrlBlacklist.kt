@@ -64,19 +64,18 @@ data class UrlBlacklist(
         val matchPattern = if (pattern.isNotEmpty()) pattern else url
         if (matchPattern.isEmpty()) return false
         
-        // Normalize the target URL to extract domain
-        val normalizedTarget = normalizeDomain(targetUrl)
+        // Normalize the target URL for comparison
+        var normalizedTarget = targetUrl.lowercase().trim()
+        normalizedTarget = normalizedTarget.removePrefix("https://")
+            .removePrefix("http://")
+            .removePrefix("www.")
         
         return when {
             matchPattern.startsWith("*.") -> {
                 // Wildcard subdomain matching (e.g., *.facebook.com)
-                // Should match www.facebook.com, m.facebook.com
-                // Should NOT match facebook.com itself
                 val domain = matchPattern.substring(2).lowercase()
-                
-                // Target must end with .domain (note the leading dot)
-                // This ensures facebook.com doesn't match *.facebook.com
-                normalizedTarget.endsWith(".$domain")
+                val domainOnly = normalizeDomain(targetUrl)
+                domainOnly.endsWith(".$domain")
             }
             matchPattern.startsWith("regex:") -> {
                 // Regex pattern matching
@@ -88,22 +87,27 @@ data class UrlBlacklist(
                 }
             }
             matchPattern.contains("*") -> {
-                // Simple wildcard matching (e.g., *porn*, facebook*)
-                val regexPattern = matchPattern
+                // Simple wildcard matching (e.g., *porn*, facebook.com/*)
+                // Match against FULL URL (with path) for wildcard patterns
+                val normalizedPattern = matchPattern.lowercase()
+                    .removePrefix("https://")
+                    .removePrefix("http://")
+                    .removePrefix("www.")
+                
+                val regexPattern = normalizedPattern
                     .replace(".", "\\.")
                     .replace("*", ".*")
                 try {
-                    Regex(regexPattern, RegexOption.IGNORE_CASE).containsMatchIn(normalizedTarget)
+                    Regex(regexPattern, RegexOption.IGNORE_CASE).matches(normalizedTarget)
                 } catch (e: Exception) {
                     false
                 }
             }
             else -> {
                 // Exact domain matching
-                // facebook.com should match facebook.com and www.facebook.com
-                // but NOT notfacebook.com
                 val normalizedPattern = normalizeDomain(matchPattern)
-                isDomainMatch(normalizedTarget, normalizedPattern)
+                val domainOnly = normalizeDomain(targetUrl)
+                isDomainMatch(domainOnly, normalizedPattern)
             }
         }
     }

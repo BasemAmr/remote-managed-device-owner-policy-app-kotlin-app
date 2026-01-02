@@ -99,12 +99,12 @@ fun HomeScreen(
                         onClick = { navigationActions.navigateToViolations() }
                     )
                     StatCard(
-                        title = "Requests",
-                        value = "0",
-                        icon = Icons.Filled.QuestionAnswer,
-                        color = MaterialTheme.colorScheme.secondary,
+                        title = "Blocked URLs",
+                        value = state.blockedUrlCount.toString(),
+                        icon = Icons.Default.Block,
+                        color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.weight(1f),
-                        onClick = { navigationActions.navigateToRequests() }
+                        onClick = { navigationActions.navigateToUrls() }
                     )
                 }
 
@@ -115,10 +115,13 @@ fun HomeScreen(
                     pendingSyncCount = state.pendingSyncCount,
                     isSyncingApps = state.isSyncingApps,
                     isSyncingPolicies = state.isSyncingPolicies,
+                    isSyncingUrls = state.isSyncingUrls,
                     appSyncMessage = state.syncStatusMessage,
                     policySyncMessage = state.policySyncStatusMessage,
+                    urlSyncMessage = state.urlSyncStatusMessage,
                     onSyncApps = { viewModel.onEvent(HomeEvent.SyncAllApps) },
-                    onSyncPolicies = { viewModel.onEvent(HomeEvent.SyncAllPolicies) }
+                    onSyncPolicies = { viewModel.onEvent(HomeEvent.SyncAllPolicies) },
+                    onSyncUrls = { viewModel.onEvent(HomeEvent.SyncAllUrls) }
                 )
 
                 // EMERGENCY REMOVE BUTTON (Developer Only)
@@ -159,10 +162,13 @@ fun SyncButtonGroup(
     pendingSyncCount: Int,
     isSyncingApps: Boolean,
     isSyncingPolicies: Boolean,
+    isSyncingUrls: Boolean,
     appSyncMessage: String?,
     policySyncMessage: String?,
+    urlSyncMessage: String?,
     onSyncApps: () -> Unit,
-    onSyncPolicies: () -> Unit
+    onSyncPolicies: () -> Unit,
+    onSyncUrls: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -174,7 +180,7 @@ fun SyncButtonGroup(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SyncButton(
-                text = "Sync Apps",
+                text = "Apps",
                 isSyncing = isSyncingApps,
                 pendingCount = pendingSyncCount,
                 onClick = onSyncApps,
@@ -186,11 +192,19 @@ fun SyncButtonGroup(
             )
             
             SyncButton(
-                text = "Sync Policies",
+                text = "Policies",
                 isSyncing = isSyncingPolicies,
                 onClick = onSyncPolicies,
                 modifier = Modifier.weight(1f),
                 containerColor = MaterialTheme.colorScheme.secondary
+            )
+
+            SyncButton(
+                text = "URLs",
+                isSyncing = isSyncingUrls,
+                onClick = onSyncUrls,
+                modifier = Modifier.weight(1f),
+                containerColor = MaterialTheme.colorScheme.error
             )
         }
         

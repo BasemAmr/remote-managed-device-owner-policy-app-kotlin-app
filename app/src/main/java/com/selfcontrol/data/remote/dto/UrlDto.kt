@@ -13,19 +13,21 @@ data class UrlDto(
     val deviceId: String,
     
     @SerializedName("url")
-    val url: String = "", // Added this
+    val url: String? = null,
     
     @SerializedName("pattern")
-    val pattern: String, // Regex or domain pattern
+    val pattern: String,
     
     @SerializedName("description")
     val description: String? = null,
     
+    // Make these nullable - backend doesn't always send them
+    // Gson will set null when missing, we handle defaults in mapper
     @SerializedName("is_blocked")
-    val isBlocked: Boolean = true, // Added this
+    val isBlocked: Boolean? = null,
     
     @SerializedName("is_active")
-    val isActive: Boolean = true,
+    val isActive: Boolean? = null,
     
     @SerializedName("created_at")
     val createdAt: Long,

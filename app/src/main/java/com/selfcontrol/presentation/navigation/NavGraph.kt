@@ -14,6 +14,7 @@ import com.selfcontrol.presentation.home.HomeScreen
 import com.selfcontrol.presentation.requests.CreateRequestScreen
 import com.selfcontrol.presentation.requests.RequestsScreen
 import com.selfcontrol.presentation.settings.SettingsScreen
+import com.selfcontrol.presentation.urls.UrlsScreen
 import com.selfcontrol.presentation.violations.ViolationsScreen
 
 @Composable
@@ -59,6 +60,10 @@ fun NavGraph(
         
         composable(Screen.Settings.route) {
             SettingsScreen(navigationActions = navigationActions)
+        }
+        
+        composable(Screen.Urls.route) {
+            UrlsScreen(navigationActions = navigationActions)
         }
         
         composable(
