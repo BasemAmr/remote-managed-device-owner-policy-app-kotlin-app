@@ -97,6 +97,18 @@ object AccessibilityHelpers {
     }
     
     /**
+     * Check if our own AccessibilityMonitor service is enabled
+     */
+    fun isOurAccessibilityServiceEnabled(context: Context): Boolean {
+        val componentName = ComponentName(
+            context.packageName,
+            "com.selfcontrol.deviceowner.AccessibilityMonitor"
+        )
+        return isAccessibilityServiceEnabled(context, componentName)
+    }
+    
+
+    /**
      * Open accessibility settings for a specific service
      */
     fun openAccessibilitySettings(context: Context, componentName: ComponentName? = null) {

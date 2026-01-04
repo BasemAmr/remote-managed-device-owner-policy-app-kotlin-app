@@ -1,6 +1,10 @@
 package com.selfcontrol.presentation
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -28,8 +32,29 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    // Receiver to detect when AccessibilityMonitor is destroyed
+    private val accessibilityDestroyedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.selfcontrol.ACCESSIBILITY_DESTROYED") {
+                Timber.w("[MainActivity] 🚨 Accessibility service destroyed! Triggering enforcement...")
+                
+                // Launch enforcement screen immediately
+                val enforcementIntent = Intent(context, com.selfcontrol.presentation.enforcement.EnforcementActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    putExtra("disabled_services", arrayOf("com.selfcontrol/com.selfcontrol.deviceowner.AccessibilityMonitor"))
+                }
+                context?.startActivity(enforcementIntent)
+            }
+        }
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Register receiver for accessibility service destruction
+        val filter = IntentFilter("com.selfcontrol.ACCESSIBILITY_DESTROYED")
+        registerReceiver(accessibilityDestroyedReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        Timber.i("[MainActivity] Registered accessibility destruction receiver")
         
         // Request notification permission for Android 13+ (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -51,6 +76,15 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 NavGraph(navController = navController)
             }
+        }
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            unregisterReceiver(accessibilityDestroyedReceiver)
+        } catch (e: Exception) {
+            Timber.e(e, "[MainActivity] Error unregistering receiver")
         }
     }
 }

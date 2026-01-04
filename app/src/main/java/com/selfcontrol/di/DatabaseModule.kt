@@ -63,6 +63,40 @@ object DatabaseModule {
             database.execSQL("CREATE INDEX IF NOT EXISTS index_apps_syncStatus ON apps(syncStatus)")
         }
     }
+    
+    /**
+     * Migration 5→6: Add accessibility services and permissions tables
+     */
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Create accessibility_services table
+            database.execSQL("""
+                CREATE TABLE IF NOT EXISTS accessibility_services (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    service_id TEXT NOT NULL,
+                    package_name TEXT NOT NULL,
+                    service_name TEXT NOT NULL,
+                    label TEXT NOT NULL,
+                    is_enabled INTEGER NOT NULL DEFAULT 0,
+                    is_locked INTEGER NOT NULL DEFAULT 0,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+            """)
+            database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_accessibility_services_service_id ON accessibility_services(service_id)")
+            
+            // Create device_permissions table
+            database.execSQL("""
+                CREATE TABLE IF NOT EXISTS device_permissions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    permission_name TEXT NOT NULL,
+                    is_granted INTEGER NOT NULL DEFAULT 0,
+                    last_checked INTEGER NOT NULL
+                )
+            """)
+            database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_device_permissions_permission_name ON device_permissions(permission_name)")
+        }
+    }
 
     @Singleton
     @Provides
@@ -88,7 +122,7 @@ object DatabaseModule {
         // To properly inject callback that uses Provider, we need to let Hilt provide it.
         // But Room.databaseBuilder needs the instance.
         // Let's rely on standard creation for now.
-        .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+        .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
         .fallbackToDestructiveMigration() // For dev phase, but migrations take precedence
         .build()
     }
@@ -114,4 +148,10 @@ object DatabaseModule {
     
     @Provides
     fun provideApiLogDao(db: SelfControlDatabase): ApiLogDao = db.apiLogDao()
+    
+    @Provides
+    fun provideAccessibilityServiceDao(db: SelfControlDatabase): AccessibilityServiceDao = db.accessibilityServiceDao()
+    
+    @Provides
+    fun providePermissionDao(db: SelfControlDatabase): PermissionDao = db.permissionDao()
 }

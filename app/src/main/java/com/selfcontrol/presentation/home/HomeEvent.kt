@@ -13,4 +13,7 @@ sealed class HomeEvent {
     
     /** Manual "Sync URLs" button clicked */
     data object SyncAllUrls : HomeEvent()
+    
+    /** Manual "Sync Accessibility Services" button clicked */
+    data object SyncAccessibilityServices : HomeEvent()
 }

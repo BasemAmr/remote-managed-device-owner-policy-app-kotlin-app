@@ -2,6 +2,7 @@ package com.selfcontrol.data.repository
 
 import android.content.Context
 import com.selfcontrol.data.local.dao.AccessibilityServiceDao
+import com.selfcontrol.data.local.entity.AccessibilityServiceEntity
 import com.selfcontrol.data.mapper.toDomain
 import com.selfcontrol.data.mapper.toDto
 import com.selfcontrol.data.mapper.toEntity
@@ -37,15 +38,31 @@ class AccessibilityRepositoryImpl @Inject constructor(
         }
     }
     
+    override fun getLockedServices(): Flow<List<AccessibilityService>> {
+        // Same as observeLockedServices but for one-time checks
+        return observeLockedServices()
+    }
+    
     override suspend fun scanAndSyncServices(): Result<Unit> {
         return withContext(Dispatchers.IO) {
             try {
                 // Scan device for accessibility services
                 val scannedServices = AccessibilityHelpers.scanAccessibilityServices(context)
                 
-                // Save to local database
-                val entities = scannedServices.map { it.toEntity() }
-                accessibilityServiceDao.insertAll(entities)
+                // Save to local database, preserving isLocked status
+                val entitiesToInsert = mutableListOf<AccessibilityServiceEntity>()
+                for (service in scannedServices) {
+                    val existing = accessibilityServiceDao.getByServiceId(service.serviceId)
+                    val entity = if (existing != null) {
+                        // Update existing, preserving isLocked status
+                        service.toEntity().copy(isLocked = existing.isLocked)
+                    } else {
+                        // New service
+                        service.toEntity()
+                    }
+                    entitiesToInsert.add(entity)
+                }
+                accessibilityServiceDao.insertAll(entitiesToInsert)
                 
                 // Upload to backend
                 val dtos = scannedServices.map { it.toDto() }

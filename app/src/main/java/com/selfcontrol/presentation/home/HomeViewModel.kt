@@ -29,6 +29,7 @@ class HomeViewModel @Inject constructor(
     private val appRepository: AppRepository,
     private val violationRepository: ViolationRepository,
     private val urlRepository: com.selfcontrol.domain.repository.UrlRepository,
+    private val accessibilityRepository: com.selfcontrol.domain.repository.AccessibilityRepository,
     private val prefs: AppPreferences,
     private val deviceOwnerManager: DeviceOwnerManager
 ) : ViewModel() {
@@ -61,6 +62,9 @@ class HomeViewModel @Inject constructor(
             }
             HomeEvent.SyncAllUrls -> {
                 triggerManualUrlSync()
+            }
+            HomeEvent.SyncAccessibilityServices -> {
+                triggerManualAccessibilitySync()
             }
         }
     }
@@ -266,6 +270,44 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun triggerManualAccessibilitySync() {
+        viewModelScope.launch {
+            try {
+                _uiState.update { 
+                    it.copy(
+                        isSyncingAccessibility = true, 
+                        accessibilitySyncStatusMessage = "Scanning services..."
+                    ) 
+                }
+
+                // Run scan and sync in viewmodel scope
+                accessibilityRepository.scanAndSyncServices()
+                accessibilityRepository.syncLockedServicesFromBackend()
+
+                Timber.i("[HomeViewModel] ⚡ Accessibility sync completed")
+                
+                _uiState.update { 
+                    it.copy(
+                        isSyncingAccessibility = false, 
+                        accessibilitySyncStatusMessage = "Services synced!"
+                    ) 
+                }
+                
+                delay(3000)
+                _uiState.update { it.copy(accessibilitySyncStatusMessage = null) }
+                
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to sync accessibility services")
+                _uiState.update { 
+                    it.copy(
+                        isSyncingAccessibility = false,
+                        accessibilitySyncStatusMessage = "Sync failed: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+    
     private fun triggerManualUrlSync() {
         viewModelScope.launch {
             try {
@@ -321,15 +363,22 @@ class HomeViewModel @Inject constructor(
                 )
             }
 
-            // Combine with pending sync count and blocked URL count
+            // Combine with pending sync count, blocked URL count, and accessibility services
             combine(
                 baseFlow,
                 appRepository.observePendingSyncCount(),
-                urlRepository.observeBlockedUrls()
-            ) { baseState, pendingCount, blockedUrls ->
+                urlRepository.observeBlockedUrls(),
+                accessibilityRepository.observeAllServices()
+            ) { baseState, pendingCount, blockedUrls, accessibilityServices ->
+                val lockedServices = accessibilityServices.filter { it.isLocked }
+                val disabledLocked = lockedServices.filter { !it.isEnabled }
+                
                 baseState.copy(
                     pendingSyncCount = pendingCount,
                     blockedUrlCount = blockedUrls.size,
+                    totalAccessibilityServices = accessibilityServices.size,
+                    lockedAccessibilityServices = lockedServices.size,
+                    disabledLockedServices = disabledLocked.size,
                     isLoading = false
                 )
             }.catch { e ->

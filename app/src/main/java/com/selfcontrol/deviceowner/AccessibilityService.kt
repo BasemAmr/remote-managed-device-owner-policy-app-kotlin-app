@@ -1,13 +1,19 @@
 ﻿package com.selfcontrol.deviceowner
 
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.selfcontrol.deviceowner.AppBlockManager
 import com.selfcontrol.domain.repository.UrlRepository
+import com.selfcontrol.domain.repository.AccessibilityRepository
 import com.selfcontrol.domain.model.UrlBlacklist
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +30,7 @@ import javax.inject.Inject
  * Dual Purpose:
  * 1. BLOCK USAGE: Detects when user tries to open blocked apps
  * 2. ANTI-TAMPER: Detects when user tries to access Settings to kill locked apps
+ * 3. SERVICE MONITOR: Continuously monitors accessibility services status
  */
 @AndroidEntryPoint
 class AccessibilityMonitor : AccessibilityService() {
@@ -34,9 +41,33 @@ class AccessibilityMonitor : AccessibilityService() {
     @Inject
     lateinit var urlRepository: UrlRepository
     
+    @Inject
+    lateinit var accessibilityRepository: AccessibilityRepository
+    
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var lastPackageName: String? = null
     private var blockedPatterns: List<UrlBlacklist> = emptyList()
+    
+    // Handler for periodic accessibility service checks
+    private val handler = Handler(Looper.getMainLooper())
+    private val checkInterval = 5000L // Check every 5 seconds
+    private var isMonitoringPaused = false // Pause when enforcement screen is active
+    
+    // Broadcast receiver for pause/resume commands
+    private val monitoringReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                "com.selfcontrol.PAUSE_MONITORING" -> {
+                    isMonitoringPaused = true
+                    Timber.i("[AccessibilityMonitor] Monitoring PAUSED by enforcement")
+                }
+                "com.selfcontrol.RESUME_MONITORING" -> {
+                    isMonitoringPaused = false
+                    Timber.i("[AccessibilityMonitor] Monitoring RESUMED")
+                }
+            }
+        }
+    }
     
     // Known browser packages (for quick lookup)
     private val knownBrowsers = setOf(
@@ -71,10 +102,20 @@ class AccessibilityMonitor : AccessibilityService() {
         super.onServiceConnected()
         Timber.i("[AccessibilityMonitor] 🔐 Service connected - Anti-Tamper Active")
         
+        // Register broadcast receiver
+        val filter = IntentFilter().apply {
+            addAction("com.selfcontrol.PAUSE_MONITORING")
+            addAction("com.selfcontrol.RESUME_MONITORING")
+        }
+        registerReceiver(monitoringReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        
         // Load blocked URL patterns
         scope.launch {
             loadBlockedUrls()
         }
+        
+        // Start periodic accessibility service monitoring
+        startAccessibilityServiceMonitoring()
     }
     
     private suspend fun loadBlockedUrls() {
@@ -218,11 +259,6 @@ class AccessibilityMonitor : AccessibilityService() {
     
     override fun onInterrupt() {
         Timber.w("[AccessibilityMonitor] Service interrupted")
-    }
-    
-    override fun onDestroy() {
-        super.onDestroy()
-        Timber.i("[AccessibilityMonitor] Service destroyed")
     }
     
     /**
@@ -421,6 +457,94 @@ class AccessibilityMonitor : AccessibilityService() {
             
         } catch (e: Exception) {
             Timber.e(e, "[AccessibilityMonitor] Failed to handle blocked URL")
+        }
+    }
+    
+    // ==================== ACCESSIBILITY SERVICE MONITORING ====================
+    
+    /**
+     * Start periodic monitoring of accessibility services
+     * Checks every 5 seconds if locked services are disabled
+     */
+    private fun startAccessibilityServiceMonitoring() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                checkAccessibilityServices()
+                handler.postDelayed(this, checkInterval)
+            }
+        }, checkInterval)
+        
+        Timber.i("[AccessibilityMonitor] Started accessibility service monitoring (every ${checkInterval/1000}s)")
+    }
+    
+    /**
+     * Check if any locked accessibility services are disabled
+     * If yes, trigger enforcement immediately
+     */
+    private fun checkAccessibilityServices() {
+        // Don't check if monitoring is paused (enforcement screen is active)
+        if (isMonitoringPaused) {
+            Timber.d("[AccessibilityMonitor] Monitoring paused, skipping check")
+            return
+        }
+        
+        scope.launch {
+            try {
+                // Rescan services to get current status
+                accessibilityRepository.scanAndSyncServices()
+                
+                val lockedServices = accessibilityRepository.getLockedServices().first()
+                val disabledLockedServices = lockedServices.filter { !it.isEnabled }
+                
+                if (disabledLockedServices.isNotEmpty()) {
+                    Timber.w("[AccessibilityMonitor] 🚨 ${disabledLockedServices.size} locked services disabled! Triggering enforcement...")
+                    
+                    // Pause monitoring while enforcement is active
+                    isMonitoringPaused = true
+                    
+                    // Trigger enforcement screen immediately
+                    val disabledServiceIds = disabledLockedServices.map { it.serviceId }.toTypedArray()
+                    
+                    val intent = Intent().apply {
+                        setClassName(
+                            applicationContext.packageName,
+                            "com.selfcontrol.presentation.enforcement.EnforcementActivity"
+                        )
+                        putExtra("disabled_services", disabledServiceIds)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+                    startActivity(intent)
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "[AccessibilityMonitor] Failed to check accessibility services")
+            }
+        }
+    }
+    
+    /**
+     * Stop monitoring when service is destroyed
+     * CRITICAL: If this service is destroyed, it means accessibility was disabled!
+     */
+    override fun onDestroy() {
+        super.onDestroy()
+        handler.removeCallbacksAndMessages(null)
+        
+        try {
+            unregisterReceiver(monitoringReceiver)
+        } catch (e: Exception) {
+            Timber.e(e, "[AccessibilityMonitor] Error unregistering receiver")
+        }
+        
+        Timber.w("[AccessibilityMonitor] 🚨 SERVICE DESTROYED - Accessibility was disabled!")
+        
+        // Trigger enforcement immediately via broadcast
+        // This will be picked up by the app even if this service is killed
+        try {
+            val intent = Intent("com.selfcontrol.ACCESSIBILITY_DESTROYED")
+            sendBroadcast(intent)
+            Timber.i("[AccessibilityMonitor] Sent destruction broadcast")
+        } catch (e: Exception) {
+            Timber.e(e, "[AccessibilityMonitor] Failed to send destruction broadcast")
         }
     }
 }

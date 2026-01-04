@@ -14,4 +14,5 @@ sealed class Screen(val route: String) {
     data object Blocked : Screen("blocked/{packageName}") {
         fun createRoute(packageName: String) = "blocked/$packageName"
     }
+    data object AccessibilityServices : Screen("accessibility")
 }

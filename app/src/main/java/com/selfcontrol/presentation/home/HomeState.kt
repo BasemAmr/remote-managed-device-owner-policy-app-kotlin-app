@@ -32,6 +32,18 @@ data class HomeState(
     /** Whether URLs are currently being synced */
     val isSyncingUrls: Boolean = false,
     /** Message to show for URL sync status */
-    val urlSyncStatusMessage: String? = null
+    val urlSyncStatusMessage: String? = null,
+    
+    // ==================== Accessibility Service Status ====================
+    /** Total number of accessibility services detected */
+    val totalAccessibilityServices: Int = 0,
+    /** Number of locked accessibility services */
+    val lockedAccessibilityServices: Int = 0,
+    /** Number of locked services that are currently disabled */
+    val disabledLockedServices: Int = 0,
+    /** Whether accessibility services are currently being synced */
+    val isSyncingAccessibility: Boolean = false,
+    /** Message to show for accessibility sync status */
+    val accessibilitySyncStatusMessage: String? = null
 )
 

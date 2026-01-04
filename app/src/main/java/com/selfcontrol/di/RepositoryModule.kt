@@ -47,4 +47,10 @@ abstract class RepositoryModule {
     abstract fun bindSettingsRepository(
         settingsRepositoryImpl: SettingsRepositoryImpl
     ): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAccessibilityRepository(
+        accessibilityRepositoryImpl: AccessibilityRepositoryImpl
+    ): AccessibilityRepository
 }

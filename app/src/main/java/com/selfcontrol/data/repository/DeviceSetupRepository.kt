@@ -20,7 +20,8 @@ class DeviceSetupRepository @Inject constructor(
     private val api: SelfControlApi,
     private val prefs: AppPreferences,
     private val appRepository: AppRepository,
-    private val policyRepository: com.selfcontrol.domain.repository.PolicyRepository
+    private val policyRepository: com.selfcontrol.domain.repository.PolicyRepository,
+    private val accessibilityRepository: com.selfcontrol.domain.repository.AccessibilityRepository
 ) {
     
     companion object {
@@ -49,6 +50,41 @@ class DeviceSetupRepository @Inject constructor(
             Timber.i("[Startup] Device registered & Authenticated. ID: ${currentId.take(10)}...")
             // If registered, sync policies with retry - MUST succeed before app opens
             syncPoliciesWithRetry()
+        }
+        
+        // 3. Scan and sync accessibility services
+        Timber.i("[Startup] Scanning accessibility services...")
+        try {
+            accessibilityRepository.scanAndSyncServices()
+            accessibilityRepository.syncLockedServicesFromBackend()
+            Timber.i("[Startup] ✅ Accessibility services synced")
+        } catch (e: Exception) {
+            Timber.e(e, "[Startup] ⚠️ Failed to sync accessibility services (non-critical)")
+        }
+        
+        // 4. Check ALL locked accessibility services (including our own)
+        Timber.i("[Startup] Checking locked accessibility services...")
+        try {
+            val lockedServices = accessibilityRepository.getLockedServices().first()
+            val disabledLockedServices = lockedServices.filter { !it.isEnabled }
+            
+            if (disabledLockedServices.isNotEmpty()) {
+                Timber.w("[Startup] ⚠️ ${disabledLockedServices.size} locked services are disabled!")
+                
+                // Trigger enforcement screen for ALL disabled locked services
+                val disabledServiceIds = disabledLockedServices.map { it.serviceId }.toTypedArray()
+                
+                val intent = android.content.Intent(context, com.selfcontrol.presentation.enforcement.EnforcementActivity::class.java).apply {
+                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    putExtra("disabled_services", disabledServiceIds)
+                }
+                context.startActivity(intent)
+                Timber.i("[Startup] Enforcement screen launched for ${disabledServiceIds.size} services")
+            } else {
+                Timber.i("[Startup] ✅ All locked accessibility services are enabled")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[Startup] Failed to check locked services")
         }
     }
     

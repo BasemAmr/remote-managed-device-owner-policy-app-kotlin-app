@@ -129,6 +129,16 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
     </activity>
+
+    <!--  -->
+    <activity
+    android:name=".presentation.enforcement.EnforcementActivity"
+    android:excludeFromRecents="true"
+    android:exported="false"
+    android:launchMode="singleTask"
+    android:screenOrientation="portrait"
+    android:theme="@style/Theme.MyApplication" />
+
     </application>
 
 </manifest>

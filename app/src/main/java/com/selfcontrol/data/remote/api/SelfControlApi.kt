@@ -44,13 +44,17 @@ interface SelfControlApi {
     suspend fun getAccessibilityServices(): List<AccessibilityServiceDto>
 
     @POST("/api/device/accessibility-services")
-    suspend fun uploadAccessibilityServices(@Body services: Map<String, List<AccessibilityServiceDto>>): ResponseWrapper<Unit>
+    suspend fun uploadAccessibilityServices(
+        @Body services: Map<String, @JvmSuppressWildcards List<AccessibilityServiceDto>>
+    ): ResponseWrapper<Unit>
 
     @GET("/api/device/accessibility-services/locked")
     suspend fun getLockedAccessibilityServices(): List<AccessibilityServiceDto>
 
     @POST("/api/device/accessibility-services/status")
-    suspend fun reportAccessibilityStatus(@Body status: Map<String, Any>): ResponseWrapper<Unit>
+    suspend fun reportAccessibilityStatus(
+        @Body status: Map<String, @JvmSuppressWildcards Any>
+    ): ResponseWrapper<Unit>
 
     @POST("/api/device/permissions")
     suspend fun uploadPermissions(@Body permissions: Map<String, List<PermissionDto>>): ResponseWrapper<Unit>

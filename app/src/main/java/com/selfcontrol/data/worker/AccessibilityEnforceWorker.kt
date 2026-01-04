@@ -40,13 +40,10 @@ class AccessibilityEnforceWorker @AssistedInject constructor(
                 for (service in disabledLockedServices) {
                     violationRepository.logViolation(
                         Violation(
-                            id = 0,
-                            deviceId = "",
-                            type = ViolationType.ACCESSIBILITY_SERVICE_DISABLED,
                             appPackage = service.packageName,
+                            type = ViolationType.ACCESSIBILITY_SERVICE_DISABLED,
                             message = "Locked accessibility service disabled: ${service.label}",
-                            timestamp = System.currentTimeMillis(),
-                            details = mapOf("service_id" to service.serviceId)
+                            details = "service_id: ${service.serviceId}"
                         )
                     )
                 }

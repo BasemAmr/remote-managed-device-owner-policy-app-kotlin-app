@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 interface AccessibilityRepository {
     fun observeAllServices(): Flow<List<AccessibilityService>>
     fun observeLockedServices(): Flow<List<AccessibilityService>>
+    fun getLockedServices(): Flow<List<AccessibilityService>> // For one-time checks
     suspend fun scanAndSyncServices(): Result<Unit>
     suspend fun syncLockedServicesFromBackend(): Result<Unit>
     suspend fun reportServiceStatus(serviceId: String, isEnabled: Boolean): Result<Unit>

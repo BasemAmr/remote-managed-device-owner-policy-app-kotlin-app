@@ -57,6 +57,13 @@ class NavigationActions(private val navController: NavHostController) {
         }
     }
 
+    fun navigateToAccessibilityServices() {
+        navController.navigate(Screen.AccessibilityServices.route) {
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     fun navigateBack() {
         navController.popBackStack()
     }

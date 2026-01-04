@@ -67,7 +67,10 @@ class DeviceOwnerManager @Inject constructor(
                 Timber.e(e, "[DeviceOwner] Failed to start VPN service")
             }
 
-            // 4. Prevent Factory Reset from Settings
+            // 4. Enable Kiosk Mode for Enforcement
+            enableKioskMode()
+
+            // 5. Prevent Factory Reset from Settings
 //            try {
 //                devicePolicyManager.addUserRestriction(adminComponent, UserManager.DISALLOW_FACTORY_RESET)
 //                Timber.i("[DeviceOwner] Factory reset prevention enabled")
@@ -365,6 +368,67 @@ class DeviceOwnerManager @Inject constructor(
             Timber.i("[DeviceOwnerManager] Cleanup complete")
         } catch (e: Exception) {
             Timber.e(e, "[DeviceOwnerManager] Failed to cleanup")
+        }
+    }
+    
+    // ==================== KIOSK MODE (LOCK TASK) ====================
+    
+    /**
+     * Enable kiosk mode for enforcement activity
+     * This allows the enforcement screen to lock the entire device
+     */
+    fun enableKioskMode() {
+        if (!devicePolicyManager.isDeviceOwnerApp(context.packageName)) {
+            Timber.w("[DeviceOwner] Not device owner, cannot enable kiosk mode")
+            return
+        }
+        
+        try {
+            // Allow both our app AND Settings app in lock task mode
+            // This lets user open Settings to enable accessibility service
+            devicePolicyManager.setLockTaskPackages(
+                adminComponent,
+                arrayOf(
+                    context.packageName,           // Our enforcement app
+                    "com.android.settings"          // Settings app
+                )
+            )
+            Timber.i("[DeviceOwner] Kiosk mode enabled (with Settings access)")
+        } catch (e: Exception) {
+            Timber.e(e, "[DeviceOwner] Failed to enable kiosk mode")
+        }
+    }
+    
+    /**
+     * Disable kiosk mode
+     */
+    fun disableKioskMode() {
+        if (!devicePolicyManager.isDeviceOwnerApp(context.packageName)) {
+            return
+        }
+        
+        try {
+            devicePolicyManager.setLockTaskPackages(adminComponent, arrayOf())
+            Timber.i("[DeviceOwner] Kiosk mode disabled")
+        } catch (e: Exception) {
+            Timber.e(e, "[DeviceOwner] Failed to disable kiosk mode")
+        }
+    }
+    
+    /**
+     * Check if kiosk mode is enabled
+     */
+    fun isKioskModeEnabled(): Boolean {
+        if (!devicePolicyManager.isDeviceOwnerApp(context.packageName)) {
+            return false
+        }
+        
+        return try {
+            val lockTaskPackages = devicePolicyManager.getLockTaskPackages(adminComponent)
+            lockTaskPackages.contains(context.packageName)
+        } catch (e: Exception) {
+            Timber.e(e, "[DeviceOwner] Failed to check kiosk mode status")
+            false
         }
     }
 }

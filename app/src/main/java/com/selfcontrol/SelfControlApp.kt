@@ -1,6 +1,10 @@
 ﻿package com.selfcontrol
 
 import android.app.Application
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.work.Configuration
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -48,6 +52,22 @@ class SelfControlApp : Application(), Configuration.Provider {
     
     private val appScope = CoroutineScope(Dispatchers.IO)
     
+    // Global receiver to detect when AccessibilityMonitor is destroyed
+    private val accessibilityDestroyedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "com.selfcontrol.ACCESSIBILITY_DESTROYED") {
+                Timber.w("[SelfControlApp] 🚨 Accessibility service destroyed! Triggering enforcement...")
+                
+                // Launch enforcement screen immediately
+                val enforcementIntent = Intent(context, com.selfcontrol.presentation.enforcement.EnforcementActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    putExtra("disabled_services", arrayOf("com.selfcontrol/com.selfcontrol.deviceowner.AccessibilityMonitor"))
+                }
+                context?.startActivity(enforcementIntent)
+            }
+        }
+    }
+    
     override fun onCreate() {
         super.onCreate()
         
@@ -75,6 +95,11 @@ class SelfControlApp : Application(), Configuration.Provider {
                 Timber.e(e, "[Startup] Initialization failed")
             }
         }
+        
+        // Register global receiver for accessibility service destruction
+        val filter = IntentFilter("com.selfcontrol.ACCESSIBILITY_DESTROYED")
+        registerReceiver(accessibilityDestroyedReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        Timber.i("[SelfControlApp] Registered global accessibility destruction receiver")
         
         // 5. Schedule all background workers
         scheduleBackgroundWorkers()
@@ -193,15 +218,30 @@ class SelfControlApp : Application(), Configuration.Provider {
             appSyncWork
         )
         
-        // 7. Accessibility Enforce Worker - Every 6 hours
-        val accessibilityEnforceWork = PeriodicWorkRequestBuilder<com.selfcontrol.data.worker.AccessibilityEnforceWorker>(
-            Constants.ACCESSIBILITY_ENFORCE_INTERVAL, TimeUnit.MINUTES
+        
+        // 7. Accessibility Scan Worker - Every 6 hours
+        val accessibilityScanWork = PeriodicWorkRequestBuilder<com.selfcontrol.data.worker.AccessibilityScanWorker>(
+            6, TimeUnit.HOURS
         )
-            .addTag(Constants.WORK_TAG_ACCESSIBILITY_ENFORCE)
+            .setConstraints(networkConstraint)
+            .addTag("accessibility_scan")
             .build()
         
         workManager.enqueueUniquePeriodicWork(
-            com.selfcontrol.data.worker.AccessibilityEnforceWorker.WORK_NAME,
+            "accessibility_scan",
+            ExistingPeriodicWorkPolicy.KEEP,
+            accessibilityScanWork
+        )
+        
+        // 8. Accessibility Enforce Worker - Every 15 minutes
+        val accessibilityEnforceWork = PeriodicWorkRequestBuilder<com.selfcontrol.data.worker.AccessibilityEnforceWorker>(
+            15, TimeUnit.MINUTES
+        )
+            .addTag("accessibility_enforce")
+            .build()
+        
+        workManager.enqueueUniquePeriodicWork(
+            "accessibility_enforce",
             ExistingPeriodicWorkPolicy.KEEP,
             accessibilityEnforceWork
         )

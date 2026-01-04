@@ -9,6 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.selfcontrol.presentation.apps.AppDetailsScreen
 import com.selfcontrol.presentation.apps.AppsScreen
+import com.selfcontrol.presentation.accessibility.AccessibilityServicesScreen
 import com.selfcontrol.presentation.blocked.BlockedScreen
 import com.selfcontrol.presentation.home.HomeScreen
 import com.selfcontrol.presentation.requests.CreateRequestScreen
@@ -74,6 +75,12 @@ fun NavGraph(
             BlockedScreen(
                 packageName = packageName,
                 navigationActions = navigationActions
+            )
+        }
+        
+        composable(Screen.AccessibilityServices.route) {
+            AccessibilityServicesScreen(
+                onNavigateBack = { navigationActions.navigateBack() }
             )
         }
     }

@@ -25,6 +25,7 @@ import com.selfcontrol.domain.model.AccessibilityService
 import com.selfcontrol.presentation.theme.SelfControlTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import timber.log.Timber
 
 @AndroidEntryPoint
 class EnforcementActivity : ComponentActivity() {
@@ -37,6 +38,17 @@ class EnforcementActivity : ComponentActivity() {
         // Prevent dismissal
         setFinishOnTouchOutside(false)
         
+        // Broadcast to pause accessibility monitoring
+        sendBroadcast(android.content.Intent("com.selfcontrol.PAUSE_MONITORING"))
+        
+        // START LOCK TASK MODE - LOCKS ENTIRE PHONE
+        try {
+            startLockTask()
+            Timber.i("[Enforcement] Lock task mode started - phone is locked")
+        } catch (e: Exception) {
+            Timber.e(e, "[Enforcement] Failed to start lock task mode")
+        }
+        
         val disabledServiceIds = intent.getStringArrayExtra("disabled_services") ?: emptyArray()
         viewModel.loadDisabledServices(disabledServiceIds.toList())
         
@@ -46,6 +58,19 @@ class EnforcementActivity : ComponentActivity() {
                     viewModel = viewModel,
                     onServiceEnabled = { serviceId ->
                         viewModel.checkServiceStatus(serviceId)
+                    },
+                    onAllServicesEnabled = {
+                        // Resume monitoring
+                        sendBroadcast(android.content.Intent("com.selfcontrol.RESUME_MONITORING"))
+                        
+                        // Stop lock task and close
+                        try {
+                            stopLockTask()
+                            Timber.i("[Enforcement] Lock task stopped - phone unlocked")
+                        } catch (e: Exception) {
+                            Timber.e(e, "[Enforcement] Failed to stop lock task")
+                        }
+                        finish()
                     }
                 )
             }
@@ -57,12 +82,23 @@ class EnforcementActivity : ComponentActivity() {
         // Prevent back button dismissal
         Toast.makeText(this, "Please enable the required service", Toast.LENGTH_SHORT).show()
     }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        // Ensure lock task is stopped
+        try {
+            stopLockTask()
+        } catch (e: Exception) {
+            Timber.e(e, "[Enforcement] Failed to stop lock task on destroy")
+        }
+    }
 }
 
 @Composable
 fun EnforcementScreen(
     viewModel: EnforcementViewModel,
-    onServiceEnabled: (String) -> Unit
+    onServiceEnabled: (String) -> Unit,
+    onAllServicesEnabled: () -> Unit
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -71,7 +107,7 @@ fun EnforcementScreen(
     LaunchedEffect(state.allServicesEnabled) {
         if (state.allServicesEnabled) {
             delay(1000)
-            (context as? Activity)?.finish()
+            onAllServicesEnabled()
         }
     }
     
@@ -117,10 +153,8 @@ fun EnforcementScreen(
                 ServiceCard(
                     service = service,
                     onEnableClick = {
-                        AccessibilityHelpers.openAccessibilitySettings(
-                            context,
-                            ComponentName.unflattenFromString(service.serviceId)
-                        )
+                        // Don't open settings - use Device Owner to force enable
+                        viewModel.forceEnableService(service.serviceId)
                     }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -189,7 +223,7 @@ fun ServiceCard(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Enable")
+                Text("Auto-Enable")
             }
         }
     }

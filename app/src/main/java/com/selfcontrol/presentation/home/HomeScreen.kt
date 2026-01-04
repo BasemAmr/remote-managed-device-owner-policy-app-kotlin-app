@@ -63,6 +63,14 @@ fun HomeScreen(
                     isConnected = state.vpnConnected
                 )
 
+                // Accessibility Services Card
+                AccessibilityServicesCard(
+                    totalServices = state.totalAccessibilityServices,
+                    lockedServices = state.lockedAccessibilityServices,
+                    disabledLocked = state.disabledLockedServices,
+                    onClick = { navigationActions.navigateToAccessibilityServices() }
+                )
+
                 // Stats Grid
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -116,12 +124,15 @@ fun HomeScreen(
                     isSyncingApps = state.isSyncingApps,
                     isSyncingPolicies = state.isSyncingPolicies,
                     isSyncingUrls = state.isSyncingUrls,
+                    isSyncingAccessibility = state.isSyncingAccessibility,
                     appSyncMessage = state.syncStatusMessage,
                     policySyncMessage = state.policySyncStatusMessage,
                     urlSyncMessage = state.urlSyncStatusMessage,
+                    accessibilitySyncMessage = state.accessibilitySyncStatusMessage,
                     onSyncApps = { viewModel.onEvent(HomeEvent.SyncAllApps) },
                     onSyncPolicies = { viewModel.onEvent(HomeEvent.SyncAllPolicies) },
-                    onSyncUrls = { viewModel.onEvent(HomeEvent.SyncAllUrls) }
+                    onSyncUrls = { viewModel.onEvent(HomeEvent.SyncAllUrls) },
+                    onSyncAccessibility = { viewModel.onEvent(HomeEvent.SyncAccessibilityServices) }
                 )
 
                 // EMERGENCY REMOVE BUTTON (Developer Only)
@@ -163,12 +174,15 @@ fun SyncButtonGroup(
     isSyncingApps: Boolean,
     isSyncingPolicies: Boolean,
     isSyncingUrls: Boolean,
+    isSyncingAccessibility: Boolean,
     appSyncMessage: String?,
     policySyncMessage: String?,
     urlSyncMessage: String?,
+    accessibilitySyncMessage: String?,
     onSyncApps: () -> Unit,
     onSyncPolicies: () -> Unit,
-    onSyncUrls: () -> Unit
+    onSyncUrls: () -> Unit,
+    onSyncAccessibility: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -208,6 +222,15 @@ fun SyncButtonGroup(
             )
         }
         
+        // Second row - Accessibility
+        SyncButton(
+            text = "Accessibility Services",
+            isSyncing = isSyncingAccessibility,
+            onClick = onSyncAccessibility,
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = Color(0xFF6750A4) // Indigo/Purple
+        )
+        
         // Status Messages
         appSyncMessage?.let {
             Text(
@@ -221,6 +244,17 @@ fun SyncButtonGroup(
         }
         
         policySyncMessage?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (it.contains("synced", ignoreCase = true)) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.error
+            )
+        }
+        
+        accessibilitySyncMessage?.let {
             Text(
                 text = it,
                 style = MaterialTheme.typography.bodySmall,
@@ -481,6 +515,90 @@ fun VpnStatusCard(
                     else 
                         MaterialTheme.colorScheme.onErrorContainer
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun AccessibilityServicesCard(
+    totalServices: Int,
+    lockedServices: Int,
+    disabledLocked: Int,
+    onClick: () -> Unit
+) {
+    val hasIssues = disabledLocked > 0
+    
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasIssues) 
+                MaterialTheme.colorScheme.errorContainer 
+            else if (lockedServices > 0)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surfaceVariant
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (hasIssues) 
+                    Icons.Default.Error 
+                else 
+                    Icons.Default.Accessibility,
+                contentDescription = null,
+                tint = if (hasIssues) 
+                    MaterialTheme.colorScheme.onErrorContainer 
+                else if (lockedServices > 0)
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (hasIssues)
+                        "⚠️ Accessibility Issue"
+                    else if (lockedServices > 0)
+                        "✓ Accessibility Services"
+                    else
+                        "Accessibility Services",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (hasIssues) 
+                        MaterialTheme.colorScheme.onErrorContainer
+                    else if (lockedServices > 0)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = when {
+                        hasIssues -> "$disabledLocked locked service(s) disabled!"
+                        lockedServices > 0 -> "$lockedServices locked, $totalServices total"
+                        totalServices > 0 -> "$totalServices services detected"
+                        else -> "Tap to scan services"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (hasIssues) 
+                        MaterialTheme.colorScheme.onErrorContainer
+                    else if (lockedServices > 0)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (hasIssues) {
+                Badge(
+                    containerColor = MaterialTheme.colorScheme.error
+                ) {
+                    Text(disabledLocked.toString())
+                }
             }
         }
     }
