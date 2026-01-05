@@ -1,69 +1,76 @@
 # Device Owner Provisioning Guide
 
-## QR Code Provisioning (Recommended)
+## IMPORTANT: Use GitHub Releases URL
 
-This allows you to set up the SelfControl app as Device Owner on a freshly reset Android device.
+The QR code MUST use the GitHub Releases download URL, not the raw file URL.
 
-### Prerequisites
-1. Push the APK to GitHub (already done)
-2. Factory reset the target device
-
-### How to Provision
-
-1. **Factory reset** the target Android device
-2. When you see the Welcome screen, **tap 6 times** on the screen to access QR provisioning mode
-3. Connect to Wi-Fi when prompted
-4. Scan the QR code below
-
-### Generate QR Code
-
-Use this JSON to generate your QR code at [QR Code Generator](https://www.qr-code-generator.com/) or any QR code tool:
+## Final Production QR Code Configuration
 
 ```json
 {
   "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": "com.selfcontrol/.deviceowner.DeviceOwnerReceiver",
-  "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": "https://github.com/BasemAmr/remote-managed-device-owner-policy-app-kotlin-app/raw/main/app/build/outputs/apk/release/app-release.apk",
-  "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM": "Zu5xRcw82oROE7hWSXAXgPQrCMt17C6f3JKANrblAD8=",
+  "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": "https://github.com/BasemAmr/remote-managed-device-owner-policy-app-kotlin-app/releases/download/v1.0.0/app-release.apk",
+  "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM": "CP0ODPPh0IXbL6jKQjaTps4CAd10cT//zoAWyF45ars=",
   "android.app.extra.PROVISIONING_SKIP_ENCRYPTION": true,
   "android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED": true
 }
 ```
 
-### APK Details
+## APK Details (Final Production Build)
 - **Package:** `com.selfcontrol`
 - **Device Admin Component:** `com.selfcontrol/.deviceowner.DeviceOwnerReceiver`
-- **SHA256 Checksum (Base64):** `Zu5xRcw82oROE7hWSXAXgPQrCMt17C6f3JKANrblAD8=`
-- **SHA256 Checksum (Hex):** `66EE7145CC3CDA844E13B85649701780F42B08CB75EC2E9FDC928036B6E5003F`
+- **SHA256 Checksum (Base64):** `CP0ODPPh0IXbL6jKQjaTps4CAd10cT//zoAWyF45ars=`
+- **SHA256 Checksum (Hex):** `08FD0E0CF3E1D085DB2FA8CA423693A6CE0201DD74713FFFCE8016C85E396ABB`
+- **testOnly:** ❌ Removed (production ready)
 
-### Features Enabled
-- ✅ Factory Reset Protection (blocks factory reset from settings)
-- ✅ Accessibility Service Enforcement (app's own service + backend-locked services)
+## Setup Steps
+
+### 1. Upload APK to GitHub Releases
+
+1. Go to: https://github.com/BasemAmr/remote-managed-device-owner-policy-app-kotlin-app/releases/new
+2. Create release:
+   - **Tag:** `v1.0.0`
+   - **Title:** `Production Release v1.0.0`
+   - **Description:** `Production-ready Device Owner APK`
+3. Upload: `app/build/outputs/apk/release/app-release.apk`
+4. Click **"Publish release"**
+
+### 2. Generate QR Code
+
+1. Copy the JSON configuration above
+2. Go to: https://www.qr-code-generator.com/
+3. Paste the JSON
+4. Generate and download QR code
+
+### 3. Provision Device
+
+1. **Factory reset** the target device
+2. **DO NOT sign in** to any account
+3. On the Welcome screen, **tap 6 times**
+4. Connect to Wi-Fi
+5. Scan the QR code
+6. Wait for download and installation
+
+## Troubleshooting
+
+### "Unable to download device admin"
+- ✅ Verify the GitHub Release exists at the URL
+- ✅ Test the download URL in a browser
+- ✅ Ensure device has internet connection
+
+### "Unable to set device admin"
+- ✅ Ensure device has NO accounts (Google, Samsung, etc.)
+- ✅ Factory reset and try again WITHOUT signing in
+- ✅ Verify `android:testOnly` is removed from manifest
+
+### "Package checksum mismatch"
+- ✅ Recalculate checksum after any rebuild
+- ✅ Update QR code with new checksum
+- ✅ Upload new APK to GitHub Releases
+
+## Features Enabled
+- ✅ Factory Reset Protection
+- ✅ Accessibility Service Enforcement
 - ✅ App Blocking via Device Owner
 - ✅ URL Blocking via VPN
-- ✅ Production-ready (no developer buttons)
-
-### Alternative: ADB Provisioning (For Testing)
-
-If you have ADB access and the device has no accounts set up:
-
-```bash
-# Install the APK
-adb install app-release.apk
-
-# Set as Device Owner
-adb shell dpm set-device-owner com.selfcontrol/.deviceowner.DeviceOwnerReceiver
-```
-
-### Troubleshooting
-
-1. **"Package checksum mismatch"**: The APK was updated. Re-calculate the checksum and update the QR code.
-2. **"Device already has an account"**: Factory reset the device before provisioning.
-3. **QR scanner not appearing**: Make sure you tap 6 times on the Welcome screen (not after setup).
-
-### Updating the APK
-
-When you rebuild the APK, you must:
-1. Recalculate the SHA256 hash: `Get-FileHash app-release.apk -Algorithm SHA256`
-2. Convert to Base64
-3. Update the QR code configuration
-4. Push to GitHub
+- ✅ Production-ready (no test flags)
