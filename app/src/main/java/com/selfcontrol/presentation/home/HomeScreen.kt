@@ -135,22 +135,6 @@ fun HomeScreen(
                     onSyncAccessibility = { viewModel.onEvent(HomeEvent.SyncAccessibilityServices) }
                 )
 
-                // EMERGENCY REMOVE BUTTON (Developer Only)
-                if (state.deviceOwnerActive) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(
-                        onClick = { viewModel.onEvent(HomeEvent.RemoveDeviceOwner) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.DeleteForever, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("CLEAR DEVICE OWNER (DEV)")
-                    }
-                }
-
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 // Last Sync Info

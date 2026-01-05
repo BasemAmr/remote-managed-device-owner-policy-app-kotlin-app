@@ -23,7 +23,7 @@ Use this JSON to generate your QR code at [QR Code Generator](https://www.qr-cod
 {
   "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": "com.selfcontrol/.deviceowner.DeviceOwnerReceiver",
   "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": "https://github.com/BasemAmr/remote-managed-device-owner-policy-app-kotlin-app/raw/main/app/build/outputs/apk/release/app-release.apk",
-  "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM": "sfAGVTFgR8/ZrUUPXT6IpROIWbJCWfdmJL3rra85saw=",
+  "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_CHECKSUM": "Zu5xRcw82oROE7hWSXAXgPQrCMt17C6f3JKANrblAD8=",
   "android.app.extra.PROVISIONING_SKIP_ENCRYPTION": true,
   "android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED": true
 }
@@ -32,14 +32,15 @@ Use this JSON to generate your QR code at [QR Code Generator](https://www.qr-cod
 ### APK Details
 - **Package:** `com.selfcontrol`
 - **Device Admin Component:** `com.selfcontrol/.deviceowner.DeviceOwnerReceiver`
-- **SHA256 Checksum (Base64):** `sfAGVTFgR8/ZrUUPXT6IpROIWbJCWfdmJL3rra85saw=`
-- **SHA256 Checksum (Hex):** `B1F00655316047CFD9AD450F5D3E88A5138859B24259F76624BDEBADAF39B1AC`
+- **SHA256 Checksum (Base64):** `Zu5xRcw82oROE7hWSXAXgPQrCMt17C6f3JKANrblAD8=`
+- **SHA256 Checksum (Hex):** `66EE7145CC3CDA844E13B85649701780F42B08CB75EC2E9FDC928036B6E5003F`
 
 ### Features Enabled
 - ✅ Factory Reset Protection (blocks factory reset from settings)
-- ✅ Accessibility Service Enforcement
+- ✅ Accessibility Service Enforcement (app's own service + backend-locked services)
 - ✅ App Blocking via Device Owner
 - ✅ URL Blocking via VPN
+- ✅ Production-ready (no developer buttons)
 
 ### Alternative: ADB Provisioning (For Testing)
 
