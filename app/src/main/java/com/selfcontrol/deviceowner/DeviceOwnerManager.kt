@@ -71,12 +71,12 @@ class DeviceOwnerManager @Inject constructor(
             enableKioskMode()
 
             // 5. Prevent Factory Reset from Settings
-//            try {
-//                devicePolicyManager.addUserRestriction(adminComponent, UserManager.DISALLOW_FACTORY_RESET)
-//                Timber.i("[DeviceOwner] Factory reset prevention enabled")
-//            } catch (e: Exception) {
-//                Timber.w(e, "[DeviceOwner] Failed to enable factory reset prevention")
-//            }
+            try {
+                devicePolicyManager.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_FACTORY_RESET)
+                Timber.i("[DeviceOwner] Factory reset prevention enabled")
+            } catch (e: Exception) {
+                Timber.w(e, "[DeviceOwner] Failed to enable factory reset prevention")
+            }
 
             // 5. Optional: Prevent clearing app data (keeps your local DB safe)
             // devicePolicyManager.setUninstallBlocked(adminComponent, context.packageName, true)
