@@ -252,7 +252,10 @@ class SelfControlApp : Application(), Configuration.Provider {
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
-            .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.INFO)
+            // Use single-thread executor for sequential worker execution (CPU optimization)
+            .setExecutor(java.util.concurrent.Executors.newSingleThreadExecutor())
+            .setTaskExecutor(java.util.concurrent.Executors.newSingleThreadExecutor())
+            .setMinimumLoggingLevel(if (BuildConfig.DEBUG) android.util.Log.DEBUG else android.util.Log.WARN)
             .build()
 }
 

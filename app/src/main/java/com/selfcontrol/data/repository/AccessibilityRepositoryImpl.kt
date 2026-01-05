@@ -82,14 +82,41 @@ class AccessibilityRepositoryImpl @Inject constructor(
         return withContext(Dispatchers.IO) {
             try {
                 val lockedServices = api.getLockedAccessibilityServices()
+                Timber.d("[AccessibilityRepo] Received ${lockedServices.size} locked services from backend")
                 
                 // Update local database with lock status
                 for (dto in lockedServices) {
+                    // Check actual enabled status from device
+                    val componentName = android.content.ComponentName.unflattenFromString(dto.serviceId)
+                    val actuallyEnabled = if (componentName != null) {
+                        AccessibilityHelpers.isAccessibilityServiceEnabled(context, componentName)
+                    } else {
+                        false
+                    }
+                    
+                    Timber.d("[AccessibilityRepo] Locked service: ${dto.serviceId}, enabled on device: $actuallyEnabled")
+                    
                     val entity = accessibilityServiceDao.getByServiceId(dto.serviceId)
                     if (entity != null) {
+                        // Update existing entity with locked status AND actual enabled status
                         accessibilityServiceDao.update(
-                            entity.copy(isLocked = dto.isLocked ?: false)
+                            entity.copy(
+                                isLocked = dto.isLocked ?: true,
+                                isEnabled = actuallyEnabled  // Use actual device status!
+                            )
                         )
+                    } else {
+                        // Create new entity for locked service that doesn't exist locally
+                        val newEntity = AccessibilityServiceEntity(
+                            serviceId = dto.serviceId,
+                            packageName = dto.packageName ?: dto.serviceId.substringBefore("/"),
+                            serviceName = dto.serviceName ?: dto.serviceId.substringAfter("/"),
+                            label = dto.label ?: "Unknown Service",
+                            isEnabled = actuallyEnabled,  // Use actual device status!
+                            isLocked = dto.isLocked ?: true
+                        )
+                        accessibilityServiceDao.insertAll(listOf(newEntity))
+                        Timber.d("[AccessibilityRepo] Created new entity for locked service: ${dto.serviceId}")
                     }
                 }
                 
@@ -120,6 +147,40 @@ class AccessibilityRepositoryImpl @Inject constructor(
                 
             } catch (e: Exception) {
                 Timber.e(e, "[AccessibilityRepo] Failed to report service status")
+                Result.failure(e)
+            }
+        }
+    }
+    
+    override suspend fun markServiceAsLocked(serviceId: String, isLocked: Boolean, isEnabled: Boolean): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val entity = accessibilityServiceDao.getByServiceId(serviceId)
+                if (entity != null) {
+                    // Update existing
+                    accessibilityServiceDao.update(entity.copy(isLocked = isLocked, isEnabled = isEnabled))
+                } else {
+                    // Create new - extract package and service name from serviceId
+                    val parts = serviceId.split("/")
+                    val packageName = parts.getOrNull(0) ?: serviceId
+                    val serviceName = parts.getOrNull(1) ?: "AccessibilityMonitor"
+                    
+                    val newEntity = AccessibilityServiceEntity(
+                        serviceId = serviceId,
+                        packageName = packageName,
+                        serviceName = serviceName,
+                        label = "SelfControl Accessibility Service",
+                        isEnabled = isEnabled,
+                        isLocked = isLocked
+                    )
+                    accessibilityServiceDao.insertAll(listOf(newEntity))
+                }
+                
+                Timber.i("[AccessibilityRepo] Marked service as locked=$isLocked, enabled=$isEnabled: $serviceId")
+                Result.success(Unit)
+                
+            } catch (e: Exception) {
+                Timber.e(e, "[AccessibilityRepo] Failed to mark service as locked")
                 Result.failure(e)
             }
         }

@@ -50,7 +50,7 @@ class AccessibilityMonitor : AccessibilityService() {
     
     // Handler for periodic accessibility service checks
     private val handler = Handler(Looper.getMainLooper())
-    private val checkInterval = 5000L // Check every 5 seconds
+    private val checkInterval = 30000L // Check every 30 seconds (optimized for battery)
     private var isMonitoringPaused = false // Pause when enforcement screen is active
     
     // Broadcast receiver for pause/resume commands

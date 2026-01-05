@@ -1,5 +1,6 @@
 package com.selfcontrol.data.remote.api
 
+import com.selfcontrol.BuildConfig
 import com.selfcontrol.data.local.dao.ApiLogDao
 import com.selfcontrol.data.local.entity.ApiLogEntity
 import com.selfcontrol.data.local.prefs.AppPreferences
@@ -17,6 +18,7 @@ import javax.inject.Singleton
 
 /**
  * Interceptor that logs all API requests and responses to database for debugging
+ * NOTE: Database logging is DISABLED in release builds for performance
  */
 @Singleton
 class ApiLoggingInterceptor @Inject constructor(
@@ -27,6 +29,11 @@ class ApiLoggingInterceptor @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     override fun intercept(chain: Interceptor.Chain): Response {
+        // In release builds, skip all logging overhead - just pass through
+        if (!BuildConfig.DEBUG) {
+            return chain.proceed(chain.request())
+        }
+
         val request = chain.request()
         val startTime = System.currentTimeMillis()
         
@@ -97,6 +104,9 @@ class ApiLoggingInterceptor @Inject constructor(
         duration: Long,
         error: String?
     ) {
+        // Skip database logging in release builds for performance
+        if (!BuildConfig.DEBUG) return
+        
         scope.launch {
             try {
                 val log = ApiLogEntity(

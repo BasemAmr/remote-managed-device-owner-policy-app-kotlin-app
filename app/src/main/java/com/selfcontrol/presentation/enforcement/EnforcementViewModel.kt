@@ -34,7 +34,7 @@ class EnforcementViewModel @Inject constructor(
             val allServices = accessibilityRepository.observeAllServices().first()
             
             for (serviceId in serviceIds) {
-                val existing = allServices.find { it.serviceId == serviceId }
+                val existing =   allServices.find { it.serviceId == serviceId }
                 if (existing != null) {
                     services.add(existing)
                 } else {
@@ -73,7 +73,7 @@ class EnforcementViewModel @Inject constructor(
                 }
             }
             
-            _state.update { it.copy(disabledServices = services) }
+            _state.update { it.copy(disabledServices = services, isLoading = false) }
         }
     }
     
@@ -127,5 +127,6 @@ class EnforcementViewModel @Inject constructor(
 
 data class EnforcementState(
     val disabledServices: List<AccessibilityService> = emptyList(),
-    val allServicesEnabled: Boolean = false
+    val allServicesEnabled: Boolean = false,
+    val isLoading: Boolean = true  // Prevent early closure
 )

@@ -19,11 +19,19 @@ android {
         targetSdk = Versions.targetSdk
         versionCode = 1
         versionName = "1.0.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("../release-key.jks")
+            storePassword = "selfcontrol123"
+            keyAlias = "selfcontrol"
+            keyPassword = "selfcontrol123"
         }
     }
 
@@ -40,6 +48,7 @@ android {
         }
         
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

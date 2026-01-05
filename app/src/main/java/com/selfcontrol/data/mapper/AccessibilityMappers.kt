@@ -41,10 +41,10 @@ fun Permission.toEntity() = PermissionEntity(
 // DTO <-> Domain mappings
 fun AccessibilityServiceDto.toDomain() = AccessibilityService(
     serviceId = serviceId,
-    packageName = packageName,
-    serviceName = serviceName,
-    label = label,
-    isEnabled = isEnabled,
+    packageName = packageName ?: serviceId.substringBefore("/"),
+    serviceName = serviceName ?: serviceId.substringAfter("/"),
+    label = label ?: "Unknown Service",
+    isEnabled = isEnabled ?: false,
     isLocked = isLocked ?: false
 )
 

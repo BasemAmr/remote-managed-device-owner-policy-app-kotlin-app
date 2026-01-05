@@ -7,15 +7,15 @@ data class AccessibilityServiceDto(
     val serviceId: String,
     
     @SerializedName("package_name")
-    val packageName: String,
+    val packageName: String? = null,
     
     @SerializedName("service_name")
-    val serviceName: String,
+    val serviceName: String? = null,
     
-    val label: String,
+    val label: String? = null,
     
     @SerializedName("is_enabled")
-    val isEnabled: Boolean,
+    val isEnabled: Boolean? = null,
     
     @SerializedName("is_locked")
     val isLocked: Boolean? = null

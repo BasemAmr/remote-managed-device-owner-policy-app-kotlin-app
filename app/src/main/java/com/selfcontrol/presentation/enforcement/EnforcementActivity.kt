@@ -103,9 +103,9 @@ fun EnforcementScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     
-    // Auto-dismiss when all services are enabled
-    LaunchedEffect(state.allServicesEnabled) {
-        if (state.allServicesEnabled) {
+    // Auto-dismiss when all services are enabled (only after loading is complete)
+    LaunchedEffect(state.allServicesEnabled, state.isLoading) {
+        if (!state.isLoading && state.allServicesEnabled && state.disabledServices.isEmpty()) {
             delay(1000)
             onAllServicesEnabled()
         }

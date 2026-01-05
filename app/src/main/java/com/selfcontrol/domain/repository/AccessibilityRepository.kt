@@ -10,4 +10,5 @@ interface AccessibilityRepository {
     suspend fun scanAndSyncServices(): Result<Unit>
     suspend fun syncLockedServicesFromBackend(): Result<Unit>
     suspend fun reportServiceStatus(serviceId: String, isEnabled: Boolean): Result<Unit>
+    suspend fun markServiceAsLocked(serviceId: String, isLocked: Boolean, isEnabled: Boolean): Result<Unit>
 }

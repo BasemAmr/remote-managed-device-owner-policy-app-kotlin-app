@@ -62,21 +62,49 @@ class DeviceSetupRepository @Inject constructor(
             Timber.e(e, "[Startup] ⚠️ Failed to sync accessibility services (non-critical)")
         }
         
-        // 4. Check ALL locked accessibility services (including our own)
+        // 4. CRITICAL: Check if OUR OWN accessibility service is enabled
+        // This is the DeviceOwner's accessibility service - it MUST always be enabled
+        val ourServiceId = "${context.packageName}/${context.packageName}.deviceowner.AccessibilityMonitor"
+        Timber.i("[Startup] Checking our accessibility service: $ourServiceId")
+        
+        val ourServiceComponent = android.content.ComponentName(
+            context.packageName,
+            "${context.packageName}.deviceowner.AccessibilityMonitor"
+        )
+        val ourServiceEnabled = com.selfcontrol.deviceowner.AccessibilityHelpers.isAccessibilityServiceEnabled(context, ourServiceComponent)
+        Timber.i("[Startup] Our accessibility service enabled: $ourServiceEnabled")
+        
+        // 5. Lock our own service in the database (always)
+        try {
+            accessibilityRepository.markServiceAsLocked(ourServiceId, isLocked = true, isEnabled = ourServiceEnabled)
+        } catch (e: Exception) {
+            Timber.e(e, "[Startup] Failed to mark our service as locked")
+        }
+        
+        // 6. Check ALL locked accessibility services (including our own)
         Timber.i("[Startup] Checking locked accessibility services...")
         try {
-            val lockedServices = accessibilityRepository.getLockedServices().first()
-            val disabledLockedServices = lockedServices.filter { !it.isEnabled }
+            // Build list of disabled services to enforce
+            val disabledServiceIds = mutableListOf<String>()
             
-            if (disabledLockedServices.isNotEmpty()) {
-                Timber.w("[Startup] ⚠️ ${disabledLockedServices.size} locked services are disabled!")
+            // First, check if our own service is disabled (highest priority)
+            if (!ourServiceEnabled) {
+                Timber.w("[Startup] ⚠️ OUR accessibility service is DISABLED! Enforcing...")
+                disabledServiceIds.add(ourServiceId)
+            }
+            
+            // Then check other locked services from backend
+            val lockedServices = accessibilityRepository.getLockedServices().first()
+            val otherDisabledLocked = lockedServices.filter { !it.isEnabled && it.serviceId != ourServiceId }
+            disabledServiceIds.addAll(otherDisabledLocked.map { it.serviceId })
+            
+            if (disabledServiceIds.isNotEmpty()) {
+                Timber.w("[Startup] ⚠️ ${disabledServiceIds.size} locked services are disabled! Launching enforcement...")
                 
                 // Trigger enforcement screen for ALL disabled locked services
-                val disabledServiceIds = disabledLockedServices.map { it.serviceId }.toTypedArray()
-                
                 val intent = android.content.Intent(context, com.selfcontrol.presentation.enforcement.EnforcementActivity::class.java).apply {
                     addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    putExtra("disabled_services", disabledServiceIds)
+                    putExtra("disabled_services", disabledServiceIds.toTypedArray())
                 }
                 context.startActivity(intent)
                 Timber.i("[Startup] Enforcement screen launched for ${disabledServiceIds.size} services")
